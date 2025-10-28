@@ -1,8 +1,0 @@
-//
-// Created by Владислав Знак on 28/10/2025.
-//
-
-#ifndef NOISESUPPRESSION_VIRTUAL_MIC_H
-#define NOISESUPPRESSION_VIRTUAL_MIC_H
-
-#endif //NOISESUPPRESSION_VIRTUAL_MIC_H

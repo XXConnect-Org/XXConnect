@@ -1,8 +1,0 @@
-//
-// Created by Владислав Знак on 28/10/2025.
-//
-
-#ifndef NOISESUPPRESSION_WAV_WRITER_H
-#define NOISESUPPRESSION_WAV_WRITER_H
-
-#endif //NOISESUPPRESSION_WAV_WRITER_H
