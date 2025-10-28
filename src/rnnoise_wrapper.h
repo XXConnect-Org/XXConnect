@@ -1,0 +1,8 @@
+//
+// Created by Владислав Знак on 28/10/2025.
+//
+
+#ifndef NOISE_SUPRESSION_RNNOISE_WRAPPER_H
+#define NOISE_SUPRESSION_RNNOISE_WRAPPER_H
+
+#endif //NOISE_SUPRESSION_RNNOISE_WRAPPER_H
