@@ -27,7 +27,6 @@ private:
     RtAudio _audio;
     RtAudio::StreamParameters _parameters;
     std::shared_ptr<ISavingWorker> _saving_worker;
-    std::vector<int16_t> _audio_data;
     std::atomic<bool> _is_recording;
     unsigned int _buffer_frames;
 

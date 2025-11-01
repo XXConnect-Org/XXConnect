@@ -14,10 +14,10 @@ public:
     virtual ~ISavingWorker() = default;
     virtual bool Save() = 0;
     void SetSampleRate();
-    void SetAudioData(const std::vector<int16_t>& audioData, unsigned int sampleRate);
+    void SetAudioData(const std::vector<int16_t>& audioData);
+    void SetSampleRate(uint32_t sampleRate);
 protected:
-    const int16_t* _audioData;
-    size_t _audioDataSize;
+    std::vector<int16_t> _audioData;
     unsigned int _sampleRate;
     bool _setter_called;
 };

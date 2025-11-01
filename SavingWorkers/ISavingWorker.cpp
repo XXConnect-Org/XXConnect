@@ -3,11 +3,10 @@
 #include <string>
 #include <cstdint>
 
-void ISavingWorker::SetAudioData(const std::vector<int16_t>& audioData, unsigned int sampleRate) {
-    _sampleRate = sampleRate;
-    _audioData = audioData.data();
-    _audioDataSize = audioData.size();
-    _sampleRate = sampleRate;
+void ISavingWorker::SetAudioData(const std::vector<int16_t>& audioData) {
+    _audioData = audioData;
     _setter_called = true;
 }
-
+void ISavingWorker::SetSampleRate(uint32_t sampleRate) {
+    _sampleRate = sampleRate;
+}

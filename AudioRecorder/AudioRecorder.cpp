@@ -149,7 +149,7 @@ AudioRecorder::AudioRecorder(std::shared_ptr<ISavingWorker> saving_worker)
         std::cout << "Failed to open audio stream!" << std::endl;
         throw std::runtime_error("Failed to open audio stream!");
     }
-    _saving_worker->SetAudioData(_audio_data, sampleRate);
+    _saving_worker->SetSampleRate(sampleRate);
 }
 
 AudioRecorder::~AudioRecorder() {
@@ -198,15 +198,16 @@ void AudioRecorder::Record(unsigned int time) {
         std::cout << "3. No audio input signal" << std::endl;
     } else {
         // Сохраняем в файл
-        std::string filename = "recorded_audio.wav";
-        std::cout << "Saving to file: " << filename << "..." << std::endl;
-
-
+        std::cout << "Saving to file: "  << "..." << std::endl;
     }
     // Закрываем поток
     if (_audio.isStreamOpen()) {
         _audio.closeStream();
     }
+    std::cout << "setting data..." << _record_data.audioData.size() << std::endl;
+
+    _saving_worker->SetAudioData(_record_data.audioData);
+
 }
 
 bool AudioRecorder::SaveData() {

@@ -4,7 +4,7 @@
 
 bool WavWorker::Save() {
     if (!_setter_called) {throw SavingWorkerException("Sample rate must be specified");}
-    if (_audioDataSize == 0) {
+    if (_audioData.size() == 0) {
         std::cout << "No audio data to save!" << std::endl;
         return false;
     }
@@ -21,17 +21,17 @@ bool WavWorker::Save() {
     }
 
     // Записываем данные в файл
-    sf_count_t framesWritten = sf_write_short(outfile, _audioData, _audioDataSize);
+    sf_count_t framesWritten = sf_write_short(outfile, _audioData.data(), _audioData.size());
     sf_close(outfile);
 
-    if (framesWritten != static_cast<sf_count_t>(_audioDataSize)) {
-        std::cout << "Error: wrote " << framesWritten << " samples, expected " << _audioDataSize << std::endl;
+    if (framesWritten != static_cast<sf_count_t>(_audioData.size())) {
+        std::cout << "Error: wrote " << framesWritten << " samples, expected " << _audioData.size() << std::endl;
         return false;
     }
-    for (int i = 0; i < _audioDataSize; i++) {
+    for (int i = 0; i < _audioData.size(); i++) {
         std::cout << _audioData[i] << " ";
     }
 
-    std::cout << "Successfully saved " << _audioDataSize << " samples to " << _filename << std::endl;
+    std::cout << "Successfully saved " << _audioData.size() << " samples to " << _filename << std::endl;
     return true;
 }
