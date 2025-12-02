@@ -16,9 +16,15 @@ int record(void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames,
     if (data->isRecording && inputBuffer) {
         int16_t* inputSamples = static_cast<int16_t*>(inputBuffer);
 
+        // Always store the raw samples locally
         data->audioData.insert(data->audioData.end(),
                                inputSamples,
                                inputSamples + nBufferFrames);
+
+        // Optionally forward the buffer to an external consumer (e.g. AudioSender)
+        if (data->onBuffer) {
+            data->onBuffer(inputSamples, nBufferFrames, data->sampleRate);
+        }
 
         static int counter = 0;
         if (++counter % (44100 / nBufferFrames) == 0) {
@@ -160,7 +166,7 @@ AudioRecorder::~AudioRecorder() {
     }
 }
 
-void AudioRecorder::Record(unsigned int time) {
+void AudioRecorder::Record(unsigned int milliseconds) {
     _record_data.audioData.clear();
     _record_data.isRecording = true;
 
@@ -176,7 +182,7 @@ void AudioRecorder::Record(unsigned int time) {
     }
 
     // Записываем time секунд
-    std::this_thread::sleep_for(std::chrono::seconds(time));
+    std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
 
     // Останавливаем запись
     _record_data.isRecording = false;

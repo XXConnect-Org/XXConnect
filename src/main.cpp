@@ -12,8 +12,8 @@ int main()
     std::cout << "Recording raw audio (shared for both tests)..." << std::endl;
     auto rawWorker = std::make_shared<WavWorker>("rec_raw.wav");
     AudioRecorder recorder(rawWorker);
-    recorder.Record(5);
-    recorder.SaveData(); // saves raw recording
+    recorder.Record(5000);
+    recorder.SaveData(); 
 
     // 2) Access the same recorded buffer and run noise suppression offline
     const auto& rawData = recorder.GetAudioData();

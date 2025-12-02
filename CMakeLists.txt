@@ -7,6 +7,7 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
 
 add_subdirectory(src/SavingWorkers)
 add_subdirectory(src/AudioRecorder)
+add_subdirectory(src/AudioSender)
 add_executable(AudioRecorderApp src/main.cpp)
 
 target_include_directories(AudioRecorderApp
@@ -17,4 +18,5 @@ target_link_libraries(AudioRecorderApp
         PRIVATE
         saving_worker
         audio_recorder
+        audio_sender
 )
