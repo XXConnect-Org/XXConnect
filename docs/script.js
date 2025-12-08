@@ -29,7 +29,7 @@ function copyToClipboardFallback(text) {
     
     try {
         document.execCommand('copy');
-        showCopyNotification('ID скопирован!');
+        showCopyNotification('ИД скопирован!');
     } catch (err) {
         showCopyNotification('Ошибка копирования');
     }
@@ -37,20 +37,15 @@ function copyToClipboardFallback(text) {
     document.body.removeChild(textArea);
 }
 
-class VideoCall {
+class AudioCall {
     constructor() {
         this.localStream = null;
-        this.remoteStream = null;
-        this.connection = null;
-        this.dataChannel = null;
-        
         this.isCallActive = false;
         this.isIncomingCall = false;
         this.isAudioMuted = false;
-        this.isVideoOff = false;
         
         this.id = this.generateId();
-        this.remoteId = null;
+        this.simulationTimer = null;
         
         this.initializeElements();
         this.setupEventListeners();
@@ -63,17 +58,17 @@ class VideoCall {
     }
 
     initializeElements() {
-        this.localVideo = document.getElementById('localVideo');
-        this.remoteVideo = document.getElementById('remoteVideo');
+        this.localVisualizer = document.getElementById('localAudioVisualizer');
+        this.remoteVisualizer = document.getElementById('remoteAudioVisualizer');
         
         this.acceptButton = document.getElementById('acceptButton');
         this.hangupButton = document.getElementById('hangupButton');
         this.muteButton = document.getElementById('muteButton');
-        this.videoButton = document.getElementById('videoButton');
         this.joinButton = document.getElementById('joinButton');
         this.declineButton = document.getElementById('declineButton');
         this.incomingCallButtons = document.getElementById('incomingCallButtons');
         this.statusContainer = document.getElementById('statusContainer');
+        this.callerInfo = document.getElementById('callerInfo');
         
         this.statusMessage = document.getElementById('statusMessage');
         this.connectionStatus = document.getElementById('connectionStatus');
@@ -92,110 +87,218 @@ class VideoCall {
         this.acceptButton.addEventListener('click', () => this.acceptCall());
         this.hangupButton.addEventListener('click', () => this.hangUp());
         this.muteButton.addEventListener('click', () => this.toggleMute());
-        this.videoButton.addEventListener('click', () => this.toggleVideo());
         this.joinButton.addEventListener('click', () => this.joinCall());
         this.declineButton.addEventListener('click', () => this.declineCall());
     }
 
     initializeSignaling() {
-        console.log(`ID: ${this.id}`);
+        console.log(`Ваш ID: ${this.id}`);
         
         setTimeout(() => {
             this.simulateIncomingCall();
-        }, 3000);
+        }, 5000);
     }
 
-    simulateIncomingCall() {
+    simulateIncomingCall() { //ПЕРЕДЕЛАТЬ НА НОРМ ЗВОНКИ
+        if (this.isCallActive || this.isIncomingCall) return;
+        
+        console.log('Симуляция входящего звонка...');
+        
         const fakeCallerId = 'user_' + Math.random().toString(36).substring(2, 8);
-        this.showIncomingCall(fakeCallerId, "Случайный пользователь");
-    }
-
-    showIncomingCall(callerId, callerName) {
+        const callers = ['Анна', 'Иван', 'Мария', 'Алексей', 'Елена', 'Дмитрий'];
+        const randomCaller = callers[Math.floor(Math.random() * callers.length)];
+        
         this.isIncomingCall = true;
-        this.remoteId = callerId;
         
-        this.incomingCallButtons.style.display = 'flex';
-        this.hangupButton.style.display = 'none';
+        if (this.callerInfo) {
+            this.callerInfo.style.display = 'block';
+        }
         
-        document.getElementById('callerName').textContent = callerName;
+        document.getElementById('callerName').textContent = randomCaller;
         
-        this.showStatus(`Входящий вызов от ${callerName}`, 'incoming');
+        if (this.incomingCallButtons) {
+            this.incomingCallButtons.style.display = 'flex';
+        }
+        
+        this.showStatus(`Входящий вызов от ${randomCaller}`, 'incoming');
+        
+        console.log(`Входящий звонок от: ${randomCaller} (ID: ${fakeCallerId})`);
+        
+        this.simulationTimer = setTimeout(() => {
+            if (this.isIncomingCall) {
+                console.log('Звонок автоматически отклонен (таймаут)');
+                this.declineCall();
+            }
+        }, 30000);
     }
 
     async acceptCall() {
         if (!this.isIncomingCall) return;
         
+        console.log('Принимаем звонок...');
+        
+        if (this.simulationTimer) {
+            clearTimeout(this.simulationTimer);
+            this.simulationTimer = null;
+        }
+        
         this.showStatus('Принимаем вызов...', 'connecting');
-        const cameraStarted = await this.startCamera();
-
-        if (!cameraStarted) {
+        
+        const micStarted = await this.startMicrophone();
+        if (!micStarted) {
+            this.showStatus('Не удалось подключить микрофон', 'error');
             return;
         }
 
-        await this.createConnection();
-        
         this.isCallActive = true;
         this.isIncomingCall = false;
+        
+        if (this.callerInfo) {
+            this.callerInfo.style.display = 'none';
+        }
 
         this.simulateRemoteConnection();
         
         this.showActiveCallUI();
-        this.showStatus('Соединение установлено!', 'success');
     }
 
     async joinCall() {
         const remoteId = this.callInput.value.trim();
         if (!remoteId) {
-            alert('Введите ID');
+            alert('Введите ID собеседника');
             return;
         }
 
-        this.remoteId = remoteId;
-        this.showStatus(`Подключаемся к ${remoteId}...`, 'connecting');
+        console.log(`Пытаемся позвонить на ID: ${remoteId}`);
         
-        const cameraStarted = await this.startCamera();
-        if (!cameraStarted) {
+        this.showStatus(`Звоним ${remoteId}...`, 'connecting');
+        
+        const micStarted = await this.startMicrophone();
+        if (!micStarted) {
+            this.showStatus('Не удалось подключить микрофон', 'error');
             return;
         }
 
-        await this.createConnection(true);
-        
         this.isCallActive = true;
-        this.showActiveCallUI();
+        
+        setTimeout(() => {
+            if (this.isCallActive) {
+                this.showStatus('Собеседник отвечает...', 'connecting');
+                
+                setTimeout(() => {
+                    this.simulateRemoteConnection();
+                    this.showActiveCallUI();
+                    this.showStatus('Соединение установлено!', 'success');
+                }, 2000);
+            }
+        }, 3000);
     }
 
     showActiveCallUI() {
-        this.incomingCallButtons.style.display = 'none';
+        if (this.incomingCallButtons) {
+            this.incomingCallButtons.style.display = 'none';
+        }
         
-        this.hangupButton.style.display = 'block';
-        this.hangupButton.disabled = false;
+        if (this.callerInfo) {
+            this.callerInfo.style.display = 'none';
+        }
         
-        this.joinButton.disabled = true;
-        this.callInput.disabled = true;
+        if (this.hangupButton) {
+            this.hangupButton.style.display = 'block';
+            this.hangupButton.disabled = false;
+        }
+
+        if (this.joinButton) {
+            this.joinButton.disabled = true;
+        }
+        if (this.callInput) {
+            this.callInput.disabled = true;
+        }
         
-        this.muteButton.disabled = false;
-        this.videoButton.disabled = false;
+        if (this.muteButton) {
+            this.muteButton.disabled = false;
+        }
         
-        this.statusContainer.style.display = 'block';
+        if (this.statusContainer) {
+            this.statusContainer.style.display = 'block';
+        }
+    }
+
+    simulateRemoteConnection() {
+        console.log('Симулируем подключение собеседника...');
+        
+        if (this.remoteVisualizer) {
+            this.remoteVisualizer.classList.add('remote-active');
+        }
+        
+        if (this.remoteInfo) {
+            this.remoteInfo.textContent = 'Собеседник подключен';
+        }
+        
+        if (this.connectionStatus) {
+            this.connectionStatus.textContent = 'Подключено';
+            this.connectionStatus.style.color = '#4CAF50';
+        }
+        
+        this.remoteStatusInterval = setInterval(() => {
+            if (this.remoteInfo && Math.random() > 0.7) {
+                const statuses = ['Говорит...', 'Слушает', 'Подключен'];
+                const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+                this.remoteInfo.textContent = randomStatus;
+            }
+        }, 3000);
     }
 
     resetUI() {
-        this.incomingCallButtons.style.display = 'none';
-        this.hangupButton.style.display = 'none';
+        if (this.incomingCallButtons) {
+            this.incomingCallButtons.style.display = 'none';
+        }
         
-        this.statusContainer.style.display = 'none';
+        if (this.callerInfo) {
+            this.callerInfo.style.display = 'none';
+        }
         
-        this.joinButton.disabled = false;
-        this.callInput.disabled = false;
+        if (this.hangupButton) {
+            this.hangupButton.style.display = 'none';
+        }
         
-        this.muteButton.disabled = true;
-        this.videoButton.disabled = true;
+        if (this.statusContainer) {
+            this.statusContainer.style.display = 'none';
+        }
+        
+        if (this.joinButton) {
+            this.joinButton.disabled = false;
+        }
+        if (this.callInput) {
+            this.callInput.disabled = false;
+        }
+        
+        if (this.muteButton) {
+            this.muteButton.disabled = true;
+            this.muteButton.textContent = 'Вкл/Выкл звук';
+            this.muteButton.style.background = '#607d8b';
+        }
+        
+        if (this.localVisualizer) {
+            this.localVisualizer.className = 'audio-visualizer';
+        }
+        if (this.remoteVisualizer) {
+            this.remoteVisualizer.className = 'audio-visualizer';
+        }
+        
+        if (this.remoteStatusInterval) {
+            clearInterval(this.remoteStatusInterval);
+            this.remoteStatusInterval = null;
+        }
     }
 
     showStatus(message, type = 'info') {
+        if (!this.statusContainer || !this.statusMessage) return;
+        
         this.statusContainer.style.display = 'block';
         this.statusMessage.textContent = message;
-        this.statusMessage.className = '';
+        
+        this.statusMessage.classList.remove('connecting', 'success', 'error');
         
         if (type === 'connecting' || type === 'incoming') {
             this.statusMessage.classList.add('connecting');
@@ -205,171 +308,109 @@ class VideoCall {
     }
 
     hideStatus() {
-        this.statusContainer.style.display = 'none';
-    }
-
-    async createConnection(isCaller = false) {
-        try {
-            const configuration = {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' }
-                ]
-            };
-
-            this.connection = new RTCConnection(configuration);
-
-            if (this.localStream) {
-                this.localStream.getTracks().forEach(track => {
-                    this.connection.addTrack(track, this.localStream);
-                });
-            }
-
-            this.connection.ontrack = (event) => {
-                this.remoteStream = event.streams[0];
-                this.remoteVideo.srcObject = this.remoteStream;
-                this.remoteInfo.textContent = 'Подключено';
-            };
-
-            this.connection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    console.log('ICE candidate:', event.candidate);
-                }
-            };
-
-            this.connection.onconnectionstatechange = () => {
-                this.connectionStatus.textContent = this.connection.connectionState;
-                
-                switch(this.connection.connectionState) {
-                    case 'connected':
-                        this.connectionStatus.style.color = '#4CAF50';
-                        this.showStatus('Соединение установлено!', 'success');
-                        break;
-                    case 'disconnected':
-                    case 'failed':
-                        this.connectionStatus.style.color = '#f44336';
-                        this.showStatus('Соединение прервано', 'error');
-                        break;
-                    case 'connecting':
-                        this.connectionStatus.style.color = '#ff9800';
-                        this.showStatus('Устанавливаем соединение...', 'connecting');
-                        break;
-                }
-            };
-
-            if (isCaller) {
-                this.dataChannel = this.connection.createDataChannel('chat');
-                this.setupDataChannel();
-            } else {
-                this.connection.ondatachannel = (event) => {
-                    this.dataChannel = event.channel;
-                    this.setupDataChannel();
-                };
-            }
-
-            if (isCaller) {
-                const offer = await this.connection.createOffer();
-                await this.connection.setLocalDescription(offer);
-                console.log('Offer created:', offer);
-                setTimeout(() => this.simulateAnswer(), 1000);
-            }
-
-        } catch (error) {
-            console.error('Ошибка создания соединения:', error);
-            this.showStatus('Ошибка соединения', 'error');
+        if (this.statusContainer) {
+            this.statusContainer.style.display = 'none';
         }
     }
 
-    async simulateAnswer() {
-        if (!this.connection) return;
-        
-        const answer = {
-            type: 'answer',
-            sdp: 'simulated-answer-sdp'
-        };
-        
+    async startMicrophone() {
         try {
-            await this.connection.setRemoteDescription(answer);
-        } catch (error) {
-            console.error('Ошибка установки answer:', error);
-        }
-    }
+            console.log('Запрашиваем доступ к микрофону...');
+            
+            const constraints = {
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                },
+                video: false
+            };
 
-    setupDataChannel() {
-        this.dataChannel.onopen = () => {
-            console.log('Data channel opened');
-            this.dataChannel.send('Привет от ' + this.id);
-        };
-
-        this.dataChannel.onmessage = (event) => {
-            console.log('Получено сообщение:', event.data);
-        };
-    }
-
-    async startCamera() {
-        try {
-            this.localStream = await navigator.mediaDevices.getUserMedia({
-                video: { width: 1280, height: 720 },
-                audio: { echoCancellation: true, noiseSuppression: true }
-            });
-
-            this.localVideo.srcObject = this.localStream;
-            this.localInfo.textContent = 'Камера включена';
+            this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+            
+            console.log('Микрофон успешно подключен');
+            
+            if (this.localVisualizer) {
+                this.localVisualizer.classList.add('mic-active');
+            }
+            if (this.localInfo) {
+                this.localInfo.textContent = 'Микрофон включен';
+            }
+            
             return true;
             
         } catch (error) {
-            console.error('Ошибка доступа к камере:', error);
-            alert('Ошибка доступа к камере. Проверьте разрешения');
-            this.showDemoVideo();
-            return false;
+            console.error('Ошибка доступа к микрофону:', error);
+            
+            let errorMessage = 'Не удалось получить доступ к микрофону. ';
+            
+            if (error.name === 'NotAllowedError') {
+                errorMessage += 'Пожалуйста, разрешите доступ к микрофону в настройках браузера.';
+            } else if (error.name === 'NotFoundError') {
+                errorMessage += 'Микрофон не найден.';
+            } else {
+                errorMessage += `Ошибка: ${error.message}`;
+            }
+            
+            alert(errorMessage);
+            
+            if (this.localVisualizer) {
+                this.localVisualizer.classList.add('mic-active');
+            }
+            if (this.localInfo) {
+                this.localInfo.textContent = 'Демо-режим (без микрофона)'; //ДЕМО ПОДУМАТЬ????
+            }
+            
+            return true;
         }
-    }
-
-    simulateRemoteConnection() {
-        setTimeout(() => {
-            this.remoteInfo.textContent = 'Подключено';
-            this.connectionStatus.textContent = 'Подключено';
-            this.connectionStatus.style.color = '#4CAF50';
-            
-            this.createDemoRemoteVideo();
-            
-            this.showStatus('Звонок активен!', 'success');
-        }, 2000);
-    }
-
-    showDemoVideo() {
-        this.localInfo.textContent = 'Демо-режим (без камеры)';
     }
 
     declineCall() {
+        console.log('Звонок отклонен');
+        
+        if (this.simulationTimer) {
+            clearTimeout(this.simulationTimer);
+            this.simulationTimer = null;
+        }
+        
         this.isIncomingCall = false;
         this.resetUI();
         this.hideStatus();
+        
+        setTimeout(() => {
+            if (!this.isCallActive && !this.isIncomingCall) {
+                this.simulateIncomingCall();
+            }
+        }, 10000);
     }
 
     hangUp() {
+        console.log('Завершаем звонок...');
+        
         this.isCallActive = false;
         this.isIncomingCall = false;
         
-        if (this.connection) {
-            this.connection.close();
-            this.connection = null;
-        }
-        
         if (this.localStream) {
-            this.localStream.getTracks().forEach(track => track.stop());
+            this.localStream.getTracks().forEach(track => {
+                track.stop();
+            });
             this.localStream = null;
         }
         
-        if (this.remoteVideo.srcObject) {
-            this.remoteVideo.srcObject = null;
+        this.resetUI();
+        
+        if (this.localInfo) {
+            this.localInfo.textContent = 'Микрофон выключен';
+        }
+        if (this.remoteInfo) {
+            this.remoteInfo.textContent = 'Ожидание подключения...';
         }
         
-        this.resetUI();
-        this.hideStatus();
-        
-        this.localInfo.textContent = 'Камера выключена';
-        this.remoteInfo.textContent = 'Ожидание подключения...';
+        setTimeout(() => {
+            if (!this.isCallActive && !this.isIncomingCall) {
+                this.simulateIncomingCall();
+            }
+        }, 15000);
     }
 
     toggleMute() {
@@ -380,31 +421,37 @@ class VideoCall {
             this.isAudioMuted = !this.isAudioMuted;
             audioTracks[0].enabled = !this.isAudioMuted;
             
-            this.muteButton.textContent = this.isAudioMuted ? '🎤 Выкл звук' : '🎤 Вкл звук';
-            this.muteButton.style.background = this.isAudioMuted ? '#f44336' : '#607d8b';
-        }
-    }
-
-    toggleVideo() {
-        if (!this.localStream) return;
-        
-        const videoTracks = this.localStream.getVideoTracks();
-        if (videoTracks.length > 0) {
-            this.isVideoOff = !this.isVideoOff;
-            videoTracks[0].enabled = !this.isVideoOff;
+            console.log(`Микрофон: ${this.isAudioMuted ? 'отключен' : 'включен'}`);
             
-            this.videoButton.textContent = this.isVideoOff ? '📹 Выкл видео' : '📹 Вкл видео';
-            this.videoButton.style.background = this.isVideoOff ? '#f44336' : '#607d8b';
+            if (this.muteButton) {
+                this.muteButton.textContent = this.isAudioMuted ? 'Включить звук' : 'Выключить звук';
+                this.muteButton.style.background = this.isAudioMuted ? '#f44336' : '#607d8b';
+            }
             
-            this.localInfo.textContent = this.isVideoOff ? 'Видео выключено' : 'Камера включена';
+            if (this.localVisualizer) {
+                if (this.isAudioMuted) {
+                    this.localVisualizer.classList.remove('mic-active');
+                    if (this.localInfo) {
+                        this.localInfo.textContent = 'Микрофон отключен';
+                    }
+                } else {
+                    this.localVisualizer.classList.add('mic-active');
+                    if (this.localInfo) {
+                        this.localInfo.textContent = 'Микрофон включен';
+                    }
+                }
+            }
         }
-    }
-
-    updateStatus(message, type = 'info') {
-        this.showStatus(message, type);
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    new VideoCall();
+    try {
+        new AudioCall();
+        console.log('Аудиозвонок инициализирован');
+        console.log('Через 5 секунд начнется симуляция входящего звонка...');
+    } catch (error) {
+        console.error('Ошибка инициализации аудиозвонка:', error);
+        alert('Ошибка загрузки приложения. Пожалуйста, обновите страницу.');
+    }
 });
