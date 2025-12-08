@@ -33,7 +33,6 @@ header p {
     opacity: 0.9;
 }
 
-/* Центральный блок Peer ID */
 .info-center {
     text-align: center;
     margin-bottom: 30px;
@@ -67,41 +66,74 @@ header p {
     font-size: 0.9rem !important;
 }
 
-.video-container {
+.audio-container {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
     margin-bottom: 30px;
 }
 
-.video-wrapper {
+.audio-wrapper {
     background: rgba(255, 255, 255, 0.3);
     border-radius: 15px;
-    padding: 15px;
+    padding: 30px 20px;
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.2);
+    text-align: center;
 }
 
-.video-wrapper h3 {
-    margin-bottom: 10px;
+.audio-wrapper h3 {
+    margin-bottom: 20px;
     text-align: center;
     color: #000;
+    font-size: 1.2rem;
 }
 
-video {
+.audio-visualizer {
+    width: 150px;
+    height: 150px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: 0 10px 30px rgba(106, 17, 203, 0.3);
+}
+
+.audio-visualizer::before {
+    content: '';
+    position: absolute;
     width: 100%;
-    height: 300px;
-    background: #000;
-    border-radius: 10px;
-    object-fit: cover;
-    transform: scaleX(-1)
+    height: 100%;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    animation: pulse 2s infinite;
 }
 
-.video-info {
+.audio-visualizer.mic-active::after {
+    content: '🎤';
+    font-size: 3rem;
+    animation: bounce 0.5s infinite alternate;
+}
+
+.audio-visualizer.remote-active::after {
+    content: '🔊';
+    font-size: 3rem;
+    animation: bounce 0.5s infinite alternate;
+}
+
+@keyframes bounce {
+    from { transform: scale(1); }
+    to { transform: scale(1.1); }
+}
+
+.audio-info {
     text-align: center;
-    margin-top: 10px;
-    font-size: 0.9rem;
-    opacity: 0.8;
+    font-size: 1rem;
+    opacity: 0.9;
+    min-height: 20px;
 }
 
 .controls {
@@ -207,7 +239,6 @@ video {
     background: rgba(255, 255, 255, 0.9);
 }
 
-/* Анимация для уведомления о копировании */
 @keyframes fadeInOut {
     0% { opacity: 0; transform: translateY(-20px); }
     20% { opacity: 1; transform: translateY(0); }
@@ -228,7 +259,7 @@ video {
 }
 
 @media (max-width: 768px) {
-    .video-container {
+    .audio-container {
         grid-template-columns: 1fr;
     }
     
@@ -257,6 +288,11 @@ video {
     .id {
         font-size: 1rem;
     }
+    
+    .audio-visualizer {
+        width: 120px;
+        height: 120px;
+    }
 }
 
 @keyframes pulse {
@@ -276,4 +312,16 @@ video {
     padding: 15px;
     background: rgba(255, 255, 255, 0.1);
     border-radius: 10px;
+}
+
+/* Убираем старые видео стили */
+.video-container,
+.video-wrapper,
+video {
+    display: none;
+}
+
+/* Скрываем кнопку видео */
+#videoButton {
+    display: none;
 }

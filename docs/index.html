@@ -23,17 +23,17 @@
             </div>
         </div>
 
-        <div class="video-container">
-            <div class="video-wrapper">
+        <div class="audio-container">
+            <div class="audio-wrapper">
                 <h3>Вы</h3>
-                <video id="localVideo" autoplay muted></video>
-                <div class="video-info" id="localInfo">Камера выключена</div>
+                <audio id="localAudio" autoplay muted></audio>
+                <div class="audio-info" id="localInfo">Микрофон выключен</div>
             </div>
 
-            <div class="video-wrapper">
+            <div class="audio-wrapper">
                 <h3>Собеседник</h3>
-                <video id="remoteVideo" autoplay></video>
-                <div class="video-info" id="remoteInfo">Ожидание подключения...</div>
+                <audio id="remoteAudio" autoplay></audio>
+                <div class="audio-info" id="remoteInfo">Ожидание подключения...</div>
             </div>
         </div>
 
@@ -55,15 +55,12 @@
                 <button id="muteButton" class="button button-secondary" disabled>
                     Вкл звук
                 </button>
-                <button id="videoButton" class="button button-secondary" disabled>
-                    Вкл видео
-                </button>
             </div>
         </div>
 
         <div class="caller-info" id="callerInfo" style="display: none;">
-            <div class="caller-name">Входящий вызов от: <span id="callerName">Анна</span></div>
-        </div>
+            <div class="caller-name">Входящий вызов от: <span id="callerName">Анна</span></div> <!-- get users name?? -->
+        </div>  
 
         <div class="status" id="statusContainer" style="display: none;">
             <div id="statusMessage">Соединение устанавливается...</div>
