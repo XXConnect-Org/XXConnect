@@ -1,6 +1,7 @@
 #include "AudioSender.hpp"
 
 #include "../AudioRecorder/NoiseSuppressor.hpp"
+#include "rtc/frameinfo.hpp"
 
 AudioSender::AudioSender(PeerConnectionPtr pc,
                          NoiseSuppressor& suppressor,
@@ -27,20 +28,27 @@ void AudioSender::OnAudioBuffer(const int16_t* samples, size_t numSamples) {
         return;
     }
 
+    // Check if track is open before sending
+    if (!_audioTrack->isOpen()) {
+        return;
+    }
+
     // Optionally denoise
     std::vector<int16_t> processed = _suppressor.IsEnabled()
         ? _suppressor.ProcessSamples(samples, numSamples, _sampleRate, _sampleRate)
         : std::vector<int16_t>(samples, samples + numSamples);
 
-    // libdatachannel transports media over RTP; for simple custom sources one
-    // common pattern is to send the raw PCM frames as binary messages on the track.
-    // Exact handling on the receiver side is up to your application.
-
+    // For media tracks, we need to use sendFrame with FrameInfo
+    // Using a simple timestamp based on sample count
+    static uint32_t timestamp = 0;
+    timestamp += static_cast<uint32_t>(processed.size());
+    
     const std::byte* begin = reinterpret_cast<const std::byte*>(processed.data());
     const std::byte* end   = begin + processed.size() * sizeof(int16_t);
     rtc::binary frame(begin, end);
-
-    _audioTrack->send(frame);
+    
+    rtc::FrameInfo frameInfo(timestamp);
+    _audioTrack->sendFrame(frame, frameInfo);
 }
 
 

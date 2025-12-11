@@ -5,9 +5,28 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
 
+# Ensure libdatachannel target is available globally.
+# AudioSender also fetches it, but if that directory isn't configured yet
+# the target would be treated as a plain library name and fail to link.
+include(FetchContent)
+if(NOT TARGET datachannel)
+    FetchContent_Declare(
+        rtc
+        GIT_REPOSITORY https://github.com/paullouisageneau/libdatachannel.git
+        GIT_TAG master
+    )
+    FetchContent_MakeAvailable(rtc)
+endif()
+
+
 add_subdirectory(src/SavingWorkers)
 add_subdirectory(src/AudioRecorder)
 add_subdirectory(src/AudioSender)
+add_subdirectory(src/AudioReceiver)
+
+enable_testing()
+add_subdirectory(tests)
+
 add_executable(AudioRecorderApp src/main.cpp)
 
 target_include_directories(AudioRecorderApp

@@ -9,22 +9,19 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(rtc)
 
-add_library(audio_sender
-        AudioSender.hpp
-        AudioSender.cpp
+add_library(audio_receiver
+        AudioReceiver.hpp
+        AudioReceiver.cpp
 )
 
-target_link_libraries(audio_sender
+target_link_libraries(audio_receiver
         PUBLIC
         datachannel
-        audio_recorder
-        saving_worker
 )
 
-target_include_directories(audio_sender
+target_include_directories(audio_receiver
         PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/..
         ${rtc_SOURCE_DIR}/include
 )
-
 
