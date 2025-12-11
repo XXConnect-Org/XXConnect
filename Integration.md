@@ -1,9 +1,8 @@
-# Интеграция с ConnectionManager
+# Интеграция с ConnectionManager (много буков от ЧатГупэТэ)
 
-## Добавление полей в ConnectionManager
+## Что добавить в ConnectionManager
 
 ```cpp
-private:
     std::unique_ptr<AudioRecorder> recorder_;
     std::unique_ptr<NoiseSuppressor> suppressor_;
     std::unordered_map<std::string, std::unique_ptr<AudioSender>> audio_senders_;
