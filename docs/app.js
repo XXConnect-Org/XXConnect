@@ -1,95 +1,77 @@
-let ws = null;
-let pc = null;
+const myId = Math.random().toString(36).substring(2, 10);
+document.getElementById("myId").textContent = myId;
+
+const SERVER = "ws://127.0.0.1:8000/" + myId;
+let ws = new WebSocket(SERVER);
+
+let pc = new RTCPeerConnection({
+    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+});
+
+pc.onicecandidate = event => {
+    if (event.candidate) {
+        ws.send(JSON.stringify({
+            id: targetId.value,
+            type: "candidate",
+            candidate: event.candidate
+        }));
+    }
+};
+
 let localStream = null;
 
-const remoteAudio = document.getElementById("remote");
-document.getElementById("connect").onclick = connect;
-document.getElementById("call").onclick = startCall;
-document.getElementById("hangup").onclick = hangUp;
-
-function genId() {
-    return Math.random().toString(36).substring(2, 12);
+async function initMic() {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 }
 
-async function connect() {
-    ws = new WebSocket("ws://127.0.0.1:8000/" + genId());
+initMic();
 
-    ws.onopen = () => {
-        console.log("Connected to signaling");
-        document.getElementById("call").disabled = false;
-    };
+ws.onmessage = async (event) => {
+    const msg = JSON.parse(event.data);
+    const from = msg.id;
 
-    ws.onmessage = async (ev) => {
-        const msg = JSON.parse(ev.data);
-
-        if (!pc) await createPeerConnection();
-
-        if (msg.type === "offer") {
-            await pc.setRemoteDescription({ type: "offer", sdp: msg.description });
+    switch (msg.type) {
+        case "offer":
+            await pc.setRemoteDescription(new RTCSessionDescription(msg.description));
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
-
             ws.send(JSON.stringify({
+                id: from,
                 type: "answer",
-                description: answer.sdp,
-                id: msg.id
+                description: answer
             }));
-        }
+            break;
 
-        if (msg.type === "answer") {
-            await pc.setRemoteDescription({ type: "answer", sdp: msg.description });
-        }
+        case "answer":
+            await pc.setRemoteDescription(new RTCSessionDescription(msg.description));
+            break;
 
-        if (msg.type === "candidate") {
-            await pc.addIceCandidate({
-                candidate: msg.candidate,
-                sdpMid: msg.mid
-            });
-        }
-    };
-}
-
-async function createPeerConnection() {
-    pc = new RTCPeerConnection();
-
-    pc.onicecandidate = (e) => {
-        if (e.candidate) {
-            ws.send(JSON.stringify({
-                type: "candidate",
-                candidate: e.candidate.candidate,
-                mid: e.candidate.sdpMid
-            }));
-        }
-    };
-
-    pc.ontrack = (event) => {
-        remoteAudio.srcObject = event.streams[0];
-    };
-
-    if (!localStream) {
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        case "candidate":
+            try {
+                await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+            } catch (e) {
+                console.error("Bad candidate", e);
+            }
+            break;
     }
+};
 
-    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-}
-
-async function startCall() {
-    if (!pc) await createPeerConnection();
+document.getElementById("callBtn").onclick = async () => {
+    const peer = targetId.value.trim();
+    if (!peer) return;
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
     ws.send(JSON.stringify({
+        id: peer,
         type: "offer",
-        description: offer.sdp
+        description: offer
     }));
+};
 
-    document.getElementById("hangup").disabled = false;
-}
-
-function hangUp() {
-    if (pc) pc.close();
-    pc = null;
-
-    document.getElementById("hangup").disabled = true;
-}
+document.getElementById("hangupBtn").onclick = () => {
+    pc.close();
+    pc = new RTCPeerConnection();
+};
