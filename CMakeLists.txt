@@ -18,6 +18,16 @@ if(NOT TARGET datachannel)
     FetchContent_MakeAvailable(rtc)
 endif()
 
+# Google Test
+if(NOT TARGET gtest)
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG v1.14.0
+    )
+    FetchContent_MakeAvailable(googletest)
+endif()
+
 
 add_subdirectory(src/SavingWorkers)
 add_subdirectory(src/AudioRecorder)

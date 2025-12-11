@@ -3,6 +3,7 @@
 #include "../common/debug_log.hpp"
 
 #include <cstring>
+#include <mutex>
 
 int record(void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames,
            double streamTime, RtAudioStreamStatus status, void *userData)
@@ -22,11 +23,6 @@ int record(void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames,
 
         if (data->onBuffer) {
             data->onBuffer(inputSamples, nBufferFrames, data->sampleRate);
-        }
-
-        static int counter = 0;
-        if (++counter % (44100 / nBufferFrames) == 0) {
-            DEBUG_LOG("." << std::flush);
         }
     }
 
@@ -183,6 +179,69 @@ void AudioRecorder::Record(unsigned int milliseconds) {
     if (_audio.isStreamOpen()) {
         _audio.closeStream();
     }
+
+    _saving_worker->SetAudioData(_record_data.audioData);
+}
+
+bool AudioRecorder::StartRecording() {
+    std::lock_guard<std::mutex> lock(_stream_mutex);
+    
+    if (_is_recording.load()) {
+        DEBUG_LOG("Recording already in progress" << DEBUG_LOG_ENDL);
+        return false;
+    }
+    
+    _record_data.isRecording = true;
+    _is_recording = true;
+
+    if (_audio.isStreamOpen()) {
+        if (_audio.startStream()) {
+            DEBUG_LOG("Error starting stream: " << _audio.getErrorText() << DEBUG_LOG_ENDL);
+            _is_recording = false;
+            _record_data.isRecording = false;
+            return false;
+        }
+        DEBUG_LOG("Recording started (stream already open)" << DEBUG_LOG_ENDL);
+        return true;
+    }
+
+    unsigned int bufferFrames = 256;
+    if (_audio.openStream(NULL, &_parameters, RTAUDIO_SINT16,
+                       _record_data.sampleRate, &bufferFrames, &record, &_record_data)) {
+        DEBUG_LOG("Error opening stream: " << _audio.getErrorText() << DEBUG_LOG_ENDL);
+        _is_recording = false;
+        _record_data.isRecording = false;
+        return false;
+    }
+
+    if (_audio.startStream()) {
+        DEBUG_LOG("Error starting stream: " << _audio.getErrorText() << DEBUG_LOG_ENDL);
+        _audio.closeStream();
+        _is_recording = false;
+        _record_data.isRecording = false;
+        return false;
+    }
+
+    DEBUG_LOG("Recording started" << DEBUG_LOG_ENDL);
+    return true;
+}
+
+void AudioRecorder::StopRecording() {
+    std::lock_guard<std::mutex> lock(_stream_mutex);
+    
+    if (!_is_recording.load()) {
+        return;
+    }
+
+    _record_data.isRecording = false;
+    _is_recording = false;
+
+    if (_audio.isStreamRunning()) {
+        _audio.stopStream();
+    }
+
+    DEBUG_LOG("Recording stopped." << DEBUG_LOG_ENDL);
+    DEBUG_LOG("Recorded " << _record_data.audioData.size() << " samples" << DEBUG_LOG_ENDL);
 
     _saving_worker->SetAudioData(_record_data.audioData);
 }

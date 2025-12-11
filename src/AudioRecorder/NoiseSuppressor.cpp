@@ -15,7 +15,7 @@ NoiseSuppressor::NoiseSuppressor()
     , _enabled(false)
     , _currentInputRate(44100)
     , _currentOutputRate(44100) {
-    _inputBuffer.reserve(480 * 2);
+    _inputBuffer.reserve(480 * 4);
 }
 
 NoiseSuppressor::~NoiseSuppressor() = default;
@@ -81,7 +81,11 @@ void NoiseSuppressor::ProcessFrame(float* frame) {
 std::vector<int16_t> NoiseSuppressor::ProcessSamples(const int16_t* samples, size_t numSamples,
                                                      unsigned int inputSampleRate, 
                                                      unsigned int outputSampleRate) {
-    if (!_enabled || numSamples == 0) {
+    if (numSamples == 0) {
+        return std::vector<int16_t>();
+    }
+
+    if (!_enabled) {
         if (inputSampleRate != outputSampleRate) {
             std::vector<float> floatInput(numSamples);
             Int16ToFloat32(samples, floatInput.data(), numSamples);
@@ -108,16 +112,21 @@ std::vector<int16_t> NoiseSuppressor::ProcessSamples(const int16_t* samples, siz
 
     _inputBuffer.insert(_inputBuffer.end(), resampled48k.begin(), resampled48k.end());
 
+    // rnnoise требует ровно 480 сэмплов (10 мс при 48kHz)
     const size_t frameSize = 480;
     std::vector<float> processedFrames;
-    processedFrames.reserve(_inputBuffer.size());
-
+    
     while (_inputBuffer.size() >= frameSize) {
         float frame[frameSize];
         std::memcpy(frame, _inputBuffer.data(), frameSize * sizeof(float));
         _inputBuffer.erase(_inputBuffer.begin(), _inputBuffer.begin() + frameSize);
         ProcessFrame(frame);
         processedFrames.insert(processedFrames.end(), frame, frame + frameSize);
+    }
+
+    // Если данных недостаточно, возвращаем пустой результат (данные останутся в буфере)
+    if (processedFrames.empty()) {
+        return std::vector<int16_t>();
     }
 
     std::vector<float> outputFloat;

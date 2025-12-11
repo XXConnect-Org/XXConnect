@@ -16,25 +16,7 @@ cmake --build build --config Release
 
 ## Тестирование
 
-### Быстрый запуск
-
-```bash
-# Интерактивное меню
-./run_tests.sh
-
-# Все тесты
-./run_tests.sh --all
-
-# Сборка + тесты
-./run_tests.sh --build
-```
-
-### Доступные тесты
-
-1. **PeerConnectionTest** - базовый тест peer-connection (DataChannel)
-2. **PeerConnectionRecorderTest** - тест AudioRecorder → PeerConnection
-3. **PeerConnectionReceiverTest** - тест PeerConnection → AudioReceiver
-4. **PeerConnectionFullTest** - полный интеграционный тест (AudioRecorder → AudioSender → PeerConnection → AudioReceiver)
+Тестирование через фреймворк Google Tests
 
 ### Запуск через ctest
 

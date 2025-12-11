@@ -9,6 +9,7 @@ AudioSender::AudioSender(PeerConnectionPtr pc,
     : _pc(std::move(pc))
     , _suppressor(suppressor)
     , _sampleRate(sampleRate)
+    , _timestamp(0)
 {
 }
 
@@ -31,18 +32,24 @@ void AudioSender::OnAudioBuffer(const int16_t* samples, size_t numSamples) {
         return;
     }
 
-    std::vector<int16_t> processed = _suppressor.IsEnabled()
-        ? _suppressor.ProcessSamples(samples, numSamples, _sampleRate, _sampleRate)
-        : std::vector<int16_t>(samples, samples + numSamples);
+    std::vector<int16_t> processed;
+    if (_suppressor.IsEnabled()) {
+        processed = _suppressor.ProcessSamples(samples, numSamples, _sampleRate, _sampleRate);
+        // Если шумоподавление вернуло пустой результат (буферизация), пропускаем буфер
+        if (processed.empty()) {
+            return;
+        }
+    } else {
+        processed.assign(samples, samples + numSamples);
+    }
 
-    static uint32_t timestamp = 0;
-    timestamp += static_cast<uint32_t>(processed.size());
+    _timestamp += static_cast<uint32_t>(processed.size());
     
     const std::byte* begin = reinterpret_cast<const std::byte*>(processed.data());
     const std::byte* end   = begin + processed.size() * sizeof(int16_t);
     rtc::binary frame(begin, end);
     
-    rtc::FrameInfo frameInfo(timestamp);
+    rtc::FrameInfo frameInfo(_timestamp);
     _audioTrack->sendFrame(frame, frameInfo);
 }
 
