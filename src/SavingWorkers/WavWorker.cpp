@@ -1,11 +1,13 @@
 #include "WavWorker.hpp"
 #include "sndfile.h"
-#include <iostream>
+#include "../common/debug_log.hpp"
 
 bool WavWorker::Save() {
-    if (!_setter_called) {throw SavingWorkerException("Sample rate must be specified");}
+    if (!_setter_called) {
+        throw SavingWorkerException("Sample rate must be specified");
+    }
     if (_audioData.size() == 0) {
-        std::cout << "No audio data to save!" << std::endl;
+        DEBUG_LOG("No audio data to save!" << DEBUG_LOG_ENDL);
         return false;
     }
 
@@ -16,23 +18,19 @@ bool WavWorker::Save() {
 
     SNDFILE* outfile = sf_open(_filename.c_str(), SFM_WRITE, &sfinfo);
     if (!outfile) {
-        std::cout << "Error: could not open output file: " << _filename << std::endl;
+        DEBUG_LOG("Error: could not open output file: " << _filename << DEBUG_LOG_ENDL);
         return false;
     }
 
-    // Записываем данные в файл
     sf_count_t framesWritten = sf_write_short(outfile, _audioData.data(), _audioData.size());
     sf_close(outfile);
 
     if (framesWritten != static_cast<sf_count_t>(_audioData.size())) {
-        std::cout << "Error: wrote " << framesWritten << " samples, expected " << _audioData.size() << std::endl;
+        DEBUG_LOG("Error: wrote " << framesWritten << " samples, expected " << _audioData.size() << DEBUG_LOG_ENDL);
         return false;
     }
-    for (int i = 0; i < 1000 && i < static_cast<int>(_audioData.size()); i++) {
-        std::cout << _audioData[i] << " ";
-    }
 
-    std::cout << "Successfully saved " << _audioData.size() << " samples to " << _filename << std::endl;
+    DEBUG_LOG("Successfully saved " << _audioData.size() << " samples to " << _filename << DEBUG_LOG_ENDL);
     return true;
 }
 

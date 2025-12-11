@@ -4,7 +4,6 @@
 #include <cmath>
 #include <cstring>
 
-// Definition of custom deleter for DenoiseState
 void DenoiseDeleter::operator()(DenoiseState* ptr) const noexcept {
     if (ptr) {
         rnnoise_destroy(ptr);
@@ -16,7 +15,7 @@ NoiseSuppressor::NoiseSuppressor()
     , _enabled(false)
     , _currentInputRate(44100)
     , _currentOutputRate(44100) {
-    _inputBuffer.reserve(480 * 2); // Reserve space for at least 2 frames
+    _inputBuffer.reserve(480 * 2);
 }
 
 NoiseSuppressor::~NoiseSuppressor() = default;
@@ -24,7 +23,6 @@ NoiseSuppressor::~NoiseSuppressor() = default;
 void NoiseSuppressor::SetEnabled(bool enabled) {
     _enabled = enabled;
     if (!enabled) {
-        // Clear buffer when disabling
         _inputBuffer.clear();
     }
 }
@@ -42,9 +40,7 @@ void NoiseSuppressor::Int16ToFloat32(const int16_t* input, float* output, size_t
 
 void NoiseSuppressor::Float32ToInt16(const float* input, int16_t* output, size_t count) {
     for (size_t i = 0; i < count; ++i) {
-        float sample = input[i];
-        // Clamp to [-1.0, 1.0]
-        sample = std::max(-1.0f, std::min(1.0f, sample));
+        float sample = std::max(-1.0f, std::min(1.0f, input[i]));
         output[i] = static_cast<int16_t>(sample * 32767.0f);
     }
 }
@@ -55,7 +51,6 @@ std::vector<float> NoiseSuppressor::Resample(const float* input, size_t inputSam
         return std::vector<float>(input, input + inputSamples);
     }
 
-    // Simple linear interpolation resampling
     const double ratio = static_cast<double>(outputRate) / static_cast<double>(inputRate);
     const size_t outputSamples = static_cast<size_t>(std::round(inputSamples * ratio));
     std::vector<float> output(outputSamples);
@@ -80,8 +75,6 @@ void NoiseSuppressor::ProcessFrame(float* frame) {
     if (!_denoiseState || !_enabled) {
         return;
     }
-    
-    // rnnoise_process_frame processes in-place
     rnnoise_process_frame(_denoiseState.get(), frame, frame);
 }
 
@@ -89,7 +82,6 @@ std::vector<int16_t> NoiseSuppressor::ProcessSamples(const int16_t* samples, siz
                                                      unsigned int inputSampleRate, 
                                                      unsigned int outputSampleRate) {
     if (!_enabled || numSamples == 0) {
-        // If disabled, just return input samples (may need resampling)
         if (inputSampleRate != outputSampleRate) {
             std::vector<float> floatInput(numSamples);
             Int16ToFloat32(samples, floatInput.data(), numSamples);
@@ -104,11 +96,9 @@ std::vector<int16_t> NoiseSuppressor::ProcessSamples(const int16_t* samples, siz
     _currentInputRate = inputSampleRate;
     _currentOutputRate = outputSampleRate;
 
-    // Convert int16_t to float32
     std::vector<float> floatInput(numSamples);
     Int16ToFloat32(samples, floatInput.data(), numSamples);
 
-    // Resample to 48kHz if needed (rnnoise requires 48kHz)
     std::vector<float> resampled48k;
     if (inputSampleRate != 48000) {
         resampled48k = Resample(floatInput.data(), numSamples, inputSampleRate, 48000);
@@ -116,30 +106,20 @@ std::vector<int16_t> NoiseSuppressor::ProcessSamples(const int16_t* samples, siz
         resampled48k = std::move(floatInput);
     }
 
-    // Add to input buffer
     _inputBuffer.insert(_inputBuffer.end(), resampled48k.begin(), resampled48k.end());
 
-    // Process complete frames (480 samples each at 48kHz)
     const size_t frameSize = 480;
     std::vector<float> processedFrames;
     processedFrames.reserve(_inputBuffer.size());
 
     while (_inputBuffer.size() >= frameSize) {
-        // Extract one frame
         float frame[frameSize];
         std::memcpy(frame, _inputBuffer.data(), frameSize * sizeof(float));
-        
-        // Remove processed frame from buffer
         _inputBuffer.erase(_inputBuffer.begin(), _inputBuffer.begin() + frameSize);
-
-        // Process the frame
         ProcessFrame(frame);
-        
-        // Add to output
         processedFrames.insert(processedFrames.end(), frame, frame + frameSize);
     }
 
-    // Resample back to output rate if needed
     std::vector<float> outputFloat;
     if (outputSampleRate != 48000) {
         outputFloat = Resample(processedFrames.data(), processedFrames.size(), 48000, outputSampleRate);
@@ -147,7 +127,6 @@ std::vector<int16_t> NoiseSuppressor::ProcessSamples(const int16_t* samples, siz
         outputFloat = std::move(processedFrames);
     }
 
-    // Convert back to int16_t
     std::vector<int16_t> result(outputFloat.size());
     Float32ToInt16(outputFloat.data(), result.data(), outputFloat.size());
 
