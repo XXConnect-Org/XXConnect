@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>XXConnect Audio</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+    <h1>XXConnect</h1>
+
+    <input id="room" placeholder="Room ID">
+
+    <button id="connectBtn">Connect</button>
+    <button id="startAudioBtn">Start Audio</button>
+    <button id="stopAudioBtn">Stop Audio</button>
+
+    <div class="status">
+        <p id="statusText">Disconnected</p>
+    </div>
+
+    <div class="volume-control">
+        <label>Volume</label>
+        <input id="volumeSlider" type="range" min="0" max="100" value="80">
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
