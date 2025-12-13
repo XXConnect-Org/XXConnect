@@ -313,15 +313,3 @@ header p {
     background: rgba(255, 255, 255, 0.1);
     border-radius: 10px;
 }
-
-/* Убираем старые видео стили */
-.video-container,
-.video-wrapper,
-video {
-    display: none;
-}
-
-/* Скрываем кнопку видео */
-#videoButton {
-    display: none;
-}
