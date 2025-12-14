@@ -157,8 +157,19 @@ class AudioCall {
         }
 
         this.simulateRemoteConnection();
-        
         this.showActiveCallUI();
+
+        setTimeout(() => {
+            if (this.isCallActive) {
+                this.showStatus('Подключаемся...', 'connecting');
+                
+                setTimeout(() => {
+                    this.simulateRemoteConnection();
+                    this.showActiveCallUI();
+                    this.showStatus('Соединение установлено!', 'success');
+                }, 2000);
+            }
+        }, 3000);
     }
 
     async joinCall() {
@@ -388,6 +399,10 @@ class AudioCall {
         
         this.isCallActive = false;
         this.isIncomingCall = false;
+
+        if (this.statusMessage) {
+            this.statusMessage.textContent = '';
+        }
         
         if (this.localStream) {
             this.localStream.getTracks().forEach(track => {
