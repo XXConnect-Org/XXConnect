@@ -94,9 +94,9 @@ class AudioCall {
     initializeSignaling() {
         console.log(`Ваш ID: ${this.id}`);
         
-        setTimeout(() => {
-            this.simulateIncomingCall();
-        }, 5000);
+        // setTimeout(() => {
+        //     this.simulateIncomingCall();
+        // }, 5000);
     }
 
     simulateIncomingCall() { //ПЕРЕДЕЛАТЬ НА НОРМ ЗВОНКИ
