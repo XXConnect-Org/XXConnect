@@ -105,8 +105,7 @@ class AudioCall {
         console.log('Симуляция входящего звонка...');
         
         const fakeCallerId = 'user_' + Math.random().toString(36).substring(2, 8);
-        const callers = ['Анна', 'Иван', 'Мария', 'Алексей', 'Елена', 'Дмитрий'];
-        const randomCaller = callers[Math.floor(Math.random() * callers.length)];
+        const randomCaller = 'Саша';
         
         this.isIncomingCall = true;
         
