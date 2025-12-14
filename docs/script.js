@@ -245,11 +245,6 @@ class AudioCall {
             this.remoteInfo.textContent = 'Собеседник подключен';
         }
         
-        if (this.connectionStatus) {
-            this.connectionStatus.textContent = 'Подключено';
-            this.connectionStatus.style.color = '#4CAF50';
-        }
-        
         this.remoteStatusInterval = setInterval(() => {
             if (this.remoteInfo && Math.random() > 0.7) {
                 const statuses = ['Говорит...', 'Слушает', 'Подключен'];
