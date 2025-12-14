@@ -102,28 +102,6 @@ header p {
     box-shadow: 0 10px 30px rgba(106, 17, 203, 0.3);
 }
 
-.audio-visualizer::before {
-    content: '';
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.1);
-    animation: pulse 2s infinite;
-}
-
-.audio-visualizer.mic-active::after {
-    content: '🎤';
-    font-size: 3rem;
-    animation: bounce 0.5s infinite alternate;
-}
-
-.audio-visualizer.remote-active::after {
-    content: '🔊';
-    font-size: 3rem;
-    animation: bounce 0.5s infinite alternate;
-}
-
 @keyframes bounce {
     from { transform: scale(1); }
     to { transform: scale(1.1); }
@@ -303,6 +281,22 @@ header p {
 
 .connecting {
     animation: pulse 1.5s infinite;
+}
+
+.status-success {
+    color: #4CAF50;
+}
+
+.status-connecting {
+    color: #FF9800;
+}
+
+.status-error {
+    color: #f44336;
+}
+
+.status-incoming {
+    color: #2196F3;
 }
 
 .status {
