@@ -105,8 +105,7 @@ class AudioCall {
         console.log('Симуляция входящего звонка...');
         
         const fakeCallerId = 'user_' + Math.random().toString(36).substring(2, 8);
-        const callers = ['Анна', 'Иван', 'Мария', 'Алексей', 'Елена', 'Дмитрий'];
-        const randomCaller = callers[Math.floor(Math.random() * callers.length)];
+        const caller = 'Саша';
         
         this.isIncomingCall = true;
         
@@ -114,15 +113,15 @@ class AudioCall {
             this.callerInfo.style.display = 'block';
         }
         
-        document.getElementById('callerName').textContent = randomCaller;
+        document.getElementById('callerName').textContent = caller;
         
         if (this.incomingCallButtons) {
             this.incomingCallButtons.style.display = 'flex';
         }
         
-        this.showStatus(`Входящий вызов от ${randomCaller}`, 'incoming');
+        this.showStatus(`Входящий вызов от ${caller}`, 'incoming');
         
-        console.log(`Входящий звонок от: ${randomCaller} (ID: ${fakeCallerId})`);
+        console.log(`Входящий звонок от: ${caller} (ID: ${fakeCallerId})`);
         
         this.simulationTimer = setTimeout(() => {
             if (this.isIncomingCall) {
