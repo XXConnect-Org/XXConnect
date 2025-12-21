@@ -1,4 +1,3 @@
-// Копирование URL комнаты в буфер обмена
 function copyRoomUrl() {
     const urlElement = document.getElementById('roomUrl');
     const url = urlElement.textContent;
@@ -47,7 +46,8 @@ class AudioCall {
         this.isAudioMuted = false;
         this.room = null;
         this.pc = null;
-        this.isInitiator = false; // Флаг инициатора
+        this.isInitiator = false;
+        this.membersCount = 0;
 
         // DOM элементы
         this.localVisualizer = document.getElementById('localAudioVisualizer');
@@ -134,14 +134,13 @@ class AudioCall {
             // Обработка списка участников
             this.room.on('members', members => {
                 console.log('Участники в комнате:', members.map(m => m.id));
-
-                // Определяем, кто инициатор
-                const myIndex = members.findIndex(member => member.id === this.drone.clientId);
-                console.log('Мой индекс:', myIndex);
+                this.membersCount = members.length;
 
                 if (members.length >= 2) {
-                    this.isInitiator = (myIndex === 1); // Второй участник - инициатор
-                    console.log('Я инициатор:', this.isInitiator);
+                    // Второй участник становится инициатором
+                    const myIndex = members.findIndex(member => member.id === this.drone.clientId);
+                    this.isInitiator = (myIndex === 1);
+                    console.log('Я инициатор:', this.isInitiator, 'Мой индекс:', myIndex);
                     this.startCall();
                 } else if (members.length === 1) {
                     this.showStatus('Ожидание подключения собеседника...', 'connecting');
@@ -276,8 +275,8 @@ class AudioCall {
 
         // Если мы инициатор - создаем предложение
         if (this.isInitiator) {
-            console.log('Я инициатор, создаю предложение');
-            setTimeout(() => this.createOffer(), 1000); // Небольшая задержка для стабильности
+            console.log('Я инициатор, создаю предложение через 1 секунду');
+            setTimeout(() => this.createOffer(), 1000);
         } else {
             console.log('Я отвечающий, жду предложения');
         }
@@ -390,6 +389,7 @@ class AudioCall {
 
         this.isCallActive = false;
         this.isAudioMuted = false;
+        this.isInitiator = false;
 
         if (this.pc) {
             this.pc.close();
