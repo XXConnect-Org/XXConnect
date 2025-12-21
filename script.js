@@ -269,6 +269,7 @@ class AudioCall {
             const isOfferer = myIndex === 1; // Второй участник создает предложение
 
             if (isOfferer) {
+                this.showStatus('Создаем оффер...', 'connecting');
                 this.createOffer();
             }
         });
