@@ -22,21 +22,27 @@
             </div>
         </div>
 
-        <div class="audio-container">
-            <div class="audio-wrapper">
+        <div class="video-container">
+            <div class="video-wrapper">
                 <h3>Вы</h3>
-                <div class="audio-visualizer" id="localAudioVisualizer">
-                    <div class="visualizer-inner"></div>
+                <div class="video-placeholder" id="localVideoContainer">
+                    <video id="localVideo" autoplay muted playsinline></video>
+                    <div class="video-overlay" id="localVideoOverlay">
+                        <div class="video-status">Камера выключена</div>
+                    </div>
                 </div>
-                <div class="audio-info" id="localInfo">Микрофон выключен</div>
+                <div class="video-info" id="localInfo">Камера выключена</div>
             </div>
 
-            <div class="audio-wrapper">
+            <div class="video-wrapper">
                 <h3>Собеседник</h3>
-                <div class="audio-visualizer" id="remoteAudioVisualizer">
-                    <div class="visualizer-inner"></div>
+                <div class="video-placeholder" id="remoteVideoContainer">
+                    <video id="remoteVideo" autoplay playsinline></video>
+                    <div class="video-overlay" id="remoteVideoOverlay">
+                        <div class="video-status">Ожидание подключения...</div>
+                    </div>
                 </div>
-                <div class="audio-info" id="remoteInfo">Ожидание подключения...</div>
+                <div class="video-info" id="remoteInfo">Ожидание подключения...</div>
             </div>
         </div>
 
@@ -56,7 +62,10 @@
 
             <div class="control-group">
                 <button id="muteButton" class="button button-secondary" disabled>
-                    Вкл/Выкл звук
+                    🔇 Вкл/Выкл звук
+                </button>
+                <button id="videoButton" class="button button-secondary" disabled>
+                    🎥 Вкл/Выкл видео
                 </button>
             </div>
         </div>
@@ -73,7 +82,7 @@
         </div>
 
         <div class="instructions">
-            <p>Отправьте ссылку выше другу для начала звонка</p>
+            <p>Отправьте ссылку выше другу для начала видеозвонка</p>
         </div>
     </div>
 

@@ -1,3 +1,4 @@
+// Копирование URL комнаты в буфер обмена
 function copyRoomUrl() {
     const urlElement = document.getElementById('roomUrl');
     const url = urlElement.textContent;
@@ -37,26 +38,33 @@ function copyToClipboardFallback(text) {
     document.body.removeChild(textArea);
 }
 
-// Основной класс для аудиозвонков с WebRTC
-class AudioCall {
+// Основной класс для видеозвонков с WebRTC
+class VideoCall {
     constructor() {
         this.localStream = null;
         this.remoteStream = null;
         this.isCallActive = false;
         this.isAudioMuted = false;
+        this.isVideoMuted = false;
         this.room = null;
         this.pc = null;
         this.isInitiator = false;
         this.membersCount = 0;
+        this.pendingCandidates = []; // Буфер для ожидающих ICE кандидатов
 
         // DOM элементы
-        this.localVisualizer = document.getElementById('localAudioVisualizer');
-        this.remoteVisualizer = document.getElementById('remoteAudioVisualizer');
+        this.localVideo = document.getElementById('localVideo');
+        this.remoteVideo = document.getElementById('remoteVideo');
+        this.localVideoContainer = document.getElementById('localVideoContainer');
+        this.remoteVideoContainer = document.getElementById('remoteVideoContainer');
+        this.localVideoOverlay = document.getElementById('localVideoOverlay');
+        this.remoteVideoOverlay = document.getElementById('remoteVideoOverlay');
         this.roomUrlDisplay = document.getElementById('roomUrl');
 
         this.acceptButton = document.getElementById('acceptButton');
         this.hangupButton = document.getElementById('hangupButton');
         this.muteButton = document.getElementById('muteButton');
+        this.videoButton = document.getElementById('videoButton');
         this.declineButton = document.getElementById('declineButton');
         this.incomingCallButtons = document.getElementById('incomingCallButtons');
         this.statusContainer = document.getElementById('statusContainer');
@@ -103,6 +111,7 @@ class AudioCall {
         this.acceptButton.addEventListener('click', () => this.acceptCall());
         this.hangupButton.addEventListener('click', () => this.hangUp());
         this.muteButton.addEventListener('click', () => this.toggleMute());
+        this.videoButton.addEventListener('click', () => this.toggleVideo());
         this.declineButton.addEventListener('click', () => this.declineCall());
     }
 
@@ -160,9 +169,9 @@ class AudioCall {
         });
     }
 
-    async startMicrophone() {
+    async startCameraAndMicrophone() {
         try {
-            console.log('Запрашиваем доступ к микрофону...');
+            console.log('Запрашиваем доступ к камере и микрофону...');
 
             const constraints = {
                 audio: {
@@ -170,31 +179,37 @@ class AudioCall {
                     noiseSuppression: true,
                     autoGainControl: true
                 },
-                video: false
+                video: {
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    facingMode: 'user'
+                }
             };
 
             this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
 
-            console.log('Микрофон успешно подключен');
+            console.log('Камера и микрофон успешно подключены');
 
-            if (this.localVisualizer) {
-                this.localVisualizer.classList.add('mic-active');
-            }
+            // Отображаем локальное видео
+            this.localVideo.srcObject = this.localStream;
+            this.localVideoContainer.classList.add('active');
+            this.localVideo.play().catch(e => console.log('Ошибка воспроизведения локального видео:', e));
+
             if (this.localInfo) {
-                this.localInfo.textContent = 'Микрофон включен';
+                this.localInfo.textContent = 'Камера и микрофон включены';
             }
 
             return true;
 
         } catch (error) {
-            console.error('Ошибка доступа к микрофону:', error);
+            console.error('Ошибка доступа к камере и микрофону:', error);
 
-            let errorMessage = 'Не удалось получить доступ к микрофону. ';
+            let errorMessage = 'Не удалось получить доступ к камере и микрофону. ';
 
             if (error.name === 'NotAllowedError') {
-                errorMessage += 'Пожалуйста, разрешите доступ к микрофону в настройках браузера.';
+                errorMessage += 'Пожалуйста, разрешите доступ к камере и микрофону в настройках браузера.';
             } else if (error.name === 'NotFoundError') {
-                errorMessage += 'Микрофон не найден.';
+                errorMessage += 'Камера или микрофон не найдены.';
             } else {
                 errorMessage += `Ошибка: ${error.message}`;
             }
@@ -229,9 +244,11 @@ class AudioCall {
             this.remoteStream = event.streams[0];
             console.log('Получен удаленный поток');
 
-            if (this.remoteVisualizer) {
-                this.remoteVisualizer.classList.add('remote-active');
-            }
+            // Отображаем удаленное видео
+            this.remoteVideo.srcObject = this.remoteStream;
+            this.remoteVideoContainer.classList.add('active');
+            this.remoteVideo.play().catch(e => console.log('Ошибка воспроизведения удаленного видео:', e));
+
             if (this.remoteInfo) {
                 this.remoteInfo.textContent = 'Собеседник подключен';
             }
@@ -260,13 +277,13 @@ class AudioCall {
     }
 
     async startCall() {
-        console.log('Начинаем звонок... Инициатор:', this.isInitiator);
+        console.log('Начинаем видеозвонок... Инициатор:', this.isInitiator);
 
         this.showStatus('Устанавливаем соединение...', 'connecting');
 
-        const micStarted = await this.startMicrophone();
-        if (!micStarted) {
-            this.showStatus('Не удалось подключить микрофон', 'error');
+        const mediaStarted = await this.startCameraAndMicrophone();
+        if (!mediaStarted) {
+            this.showStatus('Не удалось подключить камеру и микрофон', 'error');
             return;
         }
 
@@ -287,6 +304,7 @@ class AudioCall {
 
     enableControls() {
         if (this.muteButton) this.muteButton.disabled = false;
+        if (this.videoButton) this.videoButton.disabled = false;
         if (this.hangupButton) {
             this.hangupButton.style.display = 'block';
             this.hangupButton.disabled = false;
@@ -338,6 +356,9 @@ class AudioCall {
             await this.pc.setRemoteDescription(new RTCSessionDescription(data.offer));
             console.log('Установлено удаленное описание');
 
+            // Обрабатываем отложенные ICE кандидаты
+            this.processPendingCandidates();
+
             // Создаем и отправляем ответ
             const answer = await this.pc.createAnswer();
             await this.pc.setLocalDescription(answer);
@@ -365,6 +386,10 @@ class AudioCall {
         try {
             await this.pc.setRemoteDescription(new RTCSessionDescription(data.answer));
             console.log('Установлен ответ от собеседника');
+
+            // Обрабатываем отложенные ICE кандидаты
+            this.processPendingCandidates();
+
             this.showStatus('Соединение установлено!', 'success');
         } catch (error) {
             console.error('Ошибка установки ответа:', error);
@@ -376,19 +401,42 @@ class AudioCall {
         console.log('Получен ICE кандидат');
         try {
             if (this.pc) {
-                await this.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-                console.log('ICE кандидат добавлен');
+                // Проверяем, установлено ли удаленное описание
+                if (this.pc.remoteDescription && this.pc.remoteDescription.type) {
+                    await this.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+                    console.log('ICE кандидат добавлен');
+                } else {
+                    // Если описание еще не установлено, сохраняем кандидат в буфер
+                    console.log('Сохраняем ICE кандидат в буфер (ожидание remote description)');
+                    this.pendingCandidates.push(data.candidate);
+                }
             }
         } catch (error) {
             console.error('Ошибка добавления ICE кандидата:', error);
         }
     }
 
+    processPendingCandidates() {
+        if (this.pendingCandidates.length > 0) {
+            console.log(`Обрабатываем ${this.pendingCandidates.length} ожидающих ICE кандидатов`);
+            this.pendingCandidates.forEach(async (candidate) => {
+                try {
+                    await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
+                    console.log('Отложенный ICE кандидат добавлен');
+                } catch (error) {
+                    console.error('Ошибка добавления отложенного ICE кандидата:', error);
+                }
+            });
+            this.pendingCandidates = [];
+        }
+    }
+
     hangUp() {
-        console.log('Завершаем звонок...');
+        console.log('Завершаем видеозвонок...');
 
         this.isCallActive = false;
         this.isAudioMuted = false;
+        this.isVideoMuted = false;
         this.isInitiator = false;
 
         if (this.pc) {
@@ -405,20 +453,26 @@ class AudioCall {
             this.remoteStream = null;
         }
 
+        // Скрываем видео
+        this.localVideo.srcObject = null;
+        this.remoteVideo.srcObject = null;
+        this.localVideoContainer.classList.remove('active');
+        this.remoteVideoContainer.classList.remove('active');
+
         this.resetUI();
 
         if (this.localInfo) {
-            this.localInfo.textContent = 'Микрофон выключен';
+            this.localInfo.textContent = 'Камера выключена';
         }
         if (this.remoteInfo) {
             this.remoteInfo.textContent = 'Ожидание подключения...';
         }
 
-        if (this.localVisualizer) {
-            this.localVisualizer.classList.remove('mic-active');
+        if (this.localVideoOverlay) {
+            this.localVideoOverlay.querySelector('.video-status').textContent = 'Камера выключена';
         }
-        if (this.remoteVisualizer) {
-            this.remoteVisualizer.classList.remove('remote-active');
+        if (this.remoteVideoOverlay) {
+            this.remoteVideoOverlay.querySelector('.video-status').textContent = 'Ожидание подключения...';
         }
 
         this.showStatus('Ожидание подключения собеседника...', 'connecting');
@@ -439,14 +493,12 @@ class AudioCall {
 
         if (this.muteButton) {
             this.muteButton.disabled = true;
-            this.muteButton.textContent = 'Вкл/Выкл звук';
+            this.muteButton.innerHTML = '🔇 Вкл/Выкл звук';
         }
 
-        if (this.localVisualizer) {
-            this.localVisualizer.classList.remove('mic-active');
-        }
-        if (this.remoteVisualizer) {
-            this.remoteVisualizer.classList.remove('remote-active');
+        if (this.videoButton) {
+            this.videoButton.disabled = true;
+            this.videoButton.innerHTML = '🎥 Вкл/Выкл видео';
         }
     }
 
@@ -487,21 +539,44 @@ class AudioCall {
             console.log(`Микрофон: ${this.isAudioMuted ? 'отключен' : 'включен'}`);
 
             if (this.muteButton) {
-                this.muteButton.textContent = this.isAudioMuted ? 'Включить звук' : 'Выключить звук';
+                this.muteButton.innerHTML = this.isAudioMuted ?
+                    '🔊 Включить звук' : '🔇 Выключить звук';
             }
 
-            if (this.localVisualizer) {
-                if (this.isAudioMuted) {
-                    this.localVisualizer.classList.remove('mic-active');
-                    if (this.localInfo) {
-                        this.localInfo.textContent = 'Микрофон отключен';
-                    }
-                } else {
-                    this.localVisualizer.classList.add('mic-active');
-                    if (this.localInfo) {
-                        this.localInfo.textContent = 'Микрофон включен';
-                    }
-                }
+            if (this.localInfo) {
+                const videoStatus = this.isVideoMuted ? 'видео отключено' : 'видео включено';
+                this.localInfo.textContent = this.isAudioMuted ?
+                    `${videoStatus}, звук отключен` : `${videoStatus}, звук включен`;
+            }
+        }
+    }
+
+    toggleVideo() {
+        if (!this.localStream) return;
+
+        const videoTracks = this.localStream.getVideoTracks();
+        if (videoTracks.length > 0) {
+            this.isVideoMuted = !this.isVideoMuted;
+            videoTracks[0].enabled = !this.isVideoMuted;
+
+            console.log(`Камера: ${this.isVideoMuted ? 'отключена' : 'включена'}`);
+
+            if (this.videoButton) {
+                this.videoButton.innerHTML = this.isVideoMuted ?
+                    '📷 Включить видео' : '🎥 Выключить видео';
+            }
+
+            if (this.localInfo) {
+                const audioStatus = this.isAudioMuted ? 'звук отключен' : 'звук включен';
+                this.localInfo.textContent = this.isVideoMuted ?
+                    `Видео отключено, ${audioStatus}` : `Видео включено, ${audioStatus}`;
+            }
+
+            // Обновляем отображение
+            if (this.isVideoMuted) {
+                this.localVideoContainer.classList.remove('active');
+            } else {
+                this.localVideoContainer.classList.add('active');
             }
         }
     }
@@ -510,10 +585,10 @@ class AudioCall {
 // Инициализация после загрузки DOM
 document.addEventListener('DOMContentLoaded', () => {
     try {
-        const audioCall = new AudioCall();
-        console.log('Аудиозвонок инициализирован');
+        const videoCall = new VideoCall();
+        console.log('Видеозвонок инициализирован');
     } catch (error) {
-        console.error('Ошибка инициализации аудиозвонка:', error);
+        console.error('Ошибка инициализации видеозвонка:', error);
         alert('Ошибка загрузки приложения. Пожалуйста, обновите страницу.');
     }
 });
