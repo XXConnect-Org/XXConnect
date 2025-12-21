@@ -1,119 +1,496 @@
-// Generate random room name if needed
-if (!location.hash) {
-  location.hash = Math.floor(Math.random() * 0xFFFFFF).toString(16);
-}
-const roomHash = location.hash.substring(1);
+// Копирование URL комнаты в буфер обмена
+function copyRoomUrl() {
+    const urlElement = document.getElementById('roomUrl');
+    const url = urlElement.textContent;
 
-// TODO: Replace with your own channel ID
-const drone = new ScaleDrone('hDgkS2GBMa2Klonx');
-// Room name needs to be prefixed with 'observable-'
-const roomName = 'observable-' + roomHash;
-const configuration = {
-  iceServers: [{
-    urls: 'stun:stun.l.google.com:19302'
-  }]
-};
-let room;
-let pc;
-
-
-function onSuccess() {};
-function onError(error) {
-  console.error(error);
-};
-
-drone.on('open', error => {
-  if (error) {
-    return console.error(error);
-  }
-  room = drone.subscribe(roomName);
-  room.on('open', error => {
-    if (error) {
-      onError(error);
-    }
-  });
-  // We're connected to the room and received an array of 'members'
-  // connected to the room (including us). Signaling server is ready.
-  room.on('members', members => {
-    console.log('MEMBERS', members);
-    // If we are the second user to connect to the room we will be creating the offer
-    const isOfferer = members.length === 2;
-    startWebRTC(isOfferer);
-  });
-});
-
-// Send signaling data via Scaledrone
-function sendMessage(message) {
-  drone.publish({
-    room: roomName,
-    message
-  });
+    navigator.clipboard.writeText(url).then(() => {
+        showCopyNotification('Ссылка скопирована!');
+    }).catch(err => {
+        copyToClipboardFallback(url);
+    });
 }
 
-function startWebRTC(isOfferer) {
-  pc = new RTCPeerConnection(configuration);
+function showCopyNotification(message) {
+    const notification = document.createElement('div');
+    notification.textContent = message;
+    notification.className = 'copy-notification';
+    document.body.appendChild(notification);
 
-  // 'onicecandidate' notifies us whenever an ICE agent needs to deliver a
-  // message to the other peer through the signaling server
-  pc.onicecandidate = event => {
-    if (event.candidate) {
-      sendMessage({'candidate': event.candidate});
-    }
-  };
+    setTimeout(() => {
+        document.body.removeChild(notification);
+    }, 2000);
+}
 
-  // If user is offerer let the 'negotiationneeded' event create the offer
-  if (isOfferer) {
-    pc.onnegotiationneeded = () => {
-      pc.createOffer().then(localDescCreated).catch(onError);
-    }
-  }
+function copyToClipboardFallback(text) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.cssText = 'position: fixed; left: -9999px; opacity: 0;';
+    document.body.appendChild(textArea);
+    textArea.select();
 
-  // When a remote stream arrives display it in the #remoteVideo element
-  pc.ontrack = event => {
-    const stream = event.streams[0];
-    if (!remoteVideo.srcObject || remoteVideo.srcObject.id !== stream.id) {
-      remoteVideo.srcObject = stream;
-    }
-  };
-
-  navigator.mediaDevices.getUserMedia({
-    audio: true,
-    video: true,
-  }).then(stream => {
-    // Display your local video in #localVideo element
-    localVideo.srcObject = stream;
-    // Add your stream to be sent to the conneting peer
-    stream.getTracks().forEach(track => pc.addTrack(track, stream));
-  }, onError);
-
-  // Listen to signaling data from Scaledrone
-  room.on('data', (message, client) => {
-    // Message was sent by us
-    if (client.id === drone.clientId) {
-      return;
+    try {
+        document.execCommand('copy');
+        showCopyNotification('Ссылка скопирована!');
+    } catch (err) {
+        showCopyNotification('Ошибка копирования');
     }
 
-    if (message.sdp) {
-      // This is called after receiving an offer or answer from another peer
-      pc.setRemoteDescription(new RTCSessionDescription(message.sdp), () => {
-        // When receiving an offer lets answer it
-        if (pc.remoteDescription.type === 'offer') {
-          pc.createAnswer().then(localDescCreated).catch(onError);
+    document.body.removeChild(textArea);
+}
+
+// Основной класс для аудиозвонков с WebRTC
+class AudioCall {
+    constructor() {
+        this.localStream = null;
+        this.remoteStream = null;
+        this.isCallActive = false;
+        this.isIncomingCall = false;
+        this.isAudioMuted = false;
+        this.room = null;
+        this.pc = null;
+
+        // ScaleDrone настройки
+        this.channelId = 'hDgkS2GBMa2Klonx'; // Замените на ваш Channel ID
+        this.drone = null;
+
+        // Генерация или получение хэша комнаты из URL
+        this.roomHash = this.getOrCreateRoomHash();
+        this.roomName = 'observable-' + this.roomHash;
+
+        this.initializeElements();
+        this.setupEventListeners();
+        this.initializeWebRTC();
+        this.updateRoomUrl();
+    }
+
+    getOrCreateRoomHash() {
+        if (!location.hash) {
+            location.hash = Math.floor(Math.random() * 0xFFFFFF).toString(16);
         }
-      }, onError);
-    } else if (message.candidate) {
-      // Add the new ICE candidate to our connections remote description
-      pc.addIceCandidate(
-        new RTCIceCandidate(message.candidate), onSuccess, onError
-      );
+        return location.hash.substring(1);
     }
-  });
+
+    updateRoomUrl() {
+        const fullUrl = window.location.href;
+        if (this.roomUrlDisplay) {
+            this.roomUrlDisplay.textContent = fullUrl;
+        }
+    }
+
+    initializeElements() {
+        this.localVisualizer = document.getElementById('localAudioVisualizer');
+        this.remoteVisualizer = document.getElementById('remoteAudioVisualizer');
+        this.roomUrlDisplay = document.getElementById('roomUrl');
+
+        this.acceptButton = document.getElementById('acceptButton');
+        this.hangupButton = document.getElementById('hangupButton');
+        this.muteButton = document.getElementById('muteButton');
+        this.declineButton = document.getElementById('declineButton');
+        this.incomingCallButtons = document.getElementById('incomingCallButtons');
+        this.statusContainer = document.getElementById('statusContainer');
+        this.callerInfo = document.getElementById('callerInfo');
+
+        this.statusMessage = document.getElementById('statusMessage');
+        this.connectionStatus = document.getElementById('connectionStatus');
+        this.localInfo = document.getElementById('localInfo');
+        this.remoteInfo = document.getElementById('remoteInfo');
+    }
+
+    setupEventListeners() {
+        this.acceptButton.addEventListener('click', () => this.acceptCall());
+        this.hangupButton.addEventListener('click', () => this.hangUp());
+        this.muteButton.addEventListener('click', () => this.toggleMute());
+        this.declineButton.addEventListener('click', () => this.declineCall());
+    }
+
+    initializeWebRTC() {
+        // Подключение к ScaleDrone
+        this.drone = new ScaleDrone(this.channelId);
+
+        this.drone.on('open', error => {
+            if (error) {
+                console.error('Ошибка подключения к ScaleDrone:', error);
+                this.showStatus('Ошибка подключения к серверу', 'error');
+                return;
+            }
+
+            console.log('Подключено к ScaleDrone');
+
+            // Подписка на комнату
+            this.room = this.drone.subscribe(this.roomName);
+
+            this.room.on('open', error => {
+                if (error) {
+                    console.error('Ошибка подписки на комнату:', error);
+                    this.showStatus('Ошибка подключения к комнате', 'error');
+                    return;
+                }
+                console.log('Подписаны на комнату:', this.roomName);
+            });
+
+            // Обработка списка участников
+            this.room.on('members', members => {
+                console.log('Участники в комнате:', members);
+                // Если в комнате двое участников, начинаем звонок
+                if (members.length === 2) {
+                    this.startCall();
+                } else if (members.length === 1) {
+                    this.showStatus('Ожидание подключения собеседника...', 'connecting');
+                }
+            });
+
+            // Обработка входящих сообщений
+            this.room.on('data', (message, client) => {
+                // Игнорируем свои сообщения
+                if (client.id === this.drone.clientId) {
+                    return;
+                }
+
+                this.handleSignalingMessage(message);
+            });
+        });
+    }
+
+    async startMicrophone() {
+        try {
+            console.log('Запрашиваем доступ к микрофону...');
+
+            const constraints = {
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                },
+                video: false
+            };
+
+            this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+            console.log('Микрофон успешно подключен');
+
+            if (this.localVisualizer) {
+                this.localVisualizer.classList.add('mic-active');
+            }
+            if (this.localInfo) {
+                this.localInfo.textContent = 'Микрофон включен';
+            }
+
+            return true;
+
+        } catch (error) {
+            console.error('Ошибка доступа к микрофону:', error);
+
+            let errorMessage = 'Не удалось получить доступ к микрофону. ';
+
+            if (error.name === 'NotAllowedError') {
+                errorMessage += 'Пожалуйста, разрешите доступ к микрофону в настройках браузера.';
+            } else if (error.name === 'NotFoundError') {
+                errorMessage += 'Микрофон не найден.';
+            } else {
+                errorMessage += `Ошибка: ${error.message}`;
+            }
+
+            alert(errorMessage);
+            return false;
+        }
+    }
+
+    createPeerConnection() {
+        const configuration = {
+            iceServers: [{
+                urls: 'stun:stun.l.google.com:19302'
+            }]
+        };
+
+        this.pc = new RTCPeerConnection(configuration);
+
+        // Обработка ICE кандидатов
+        this.pc.onicecandidate = event => {
+            if (event.candidate) {
+                this.sendMessage({
+                    type: 'candidate',
+                    candidate: event.candidate
+                });
+            }
+        };
+
+        // Обработка входящего потока
+        this.pc.ontrack = event => {
+            this.remoteStream = event.streams[0];
+            console.log('Получен удаленный поток');
+
+            if (this.remoteVisualizer) {
+                this.remoteVisualizer.classList.add('remote-active');
+            }
+            if (this.remoteInfo) {
+                this.remoteInfo.textContent = 'Собеседник подключен';
+            }
+
+            this.showStatus('Соединение установлено!', 'success');
+        };
+
+        // Добавление локального потока
+        if (this.localStream) {
+            this.localStream.getTracks().forEach(track => {
+                this.pc.addTrack(track, this.localStream);
+            });
+        }
+    }
+
+    sendMessage(message) {
+        if (this.drone && this.room) {
+            this.drone.publish({
+                room: this.roomName,
+                message: message
+            });
+        }
+    }
+
+    async startCall() {
+        console.log('Начинаем звонок...');
+
+        this.showStatus('Устанавливаем соединение...', 'connecting');
+
+        const micStarted = await this.startMicrophone();
+        if (!micStarted) {
+            this.showStatus('Не удалось подключить микрофон', 'error');
+            return;
+        }
+
+        // Создаем PeerConnection
+        this.createPeerConnection();
+
+        // Определяем, кто будет создавать предложение
+        // Второй участник (который присоединился позже) создает предложение
+        this.room.getMembers((error, members) => {
+            if (error) return;
+
+            const myIndex = members.findIndex(member => member.id === this.drone.clientId);
+            const isOfferer = myIndex === 1; // Второй участник создает предложение
+
+            if (isOfferer) {
+                this.createOffer();
+            }
+        });
+    }
+
+    async createOffer() {
+        try {
+            const offer = await this.pc.createOffer();
+            await this.pc.setLocalDescription(offer);
+
+            this.sendMessage({
+                type: 'offer',
+                offer: offer
+            });
+
+            this.isCallActive = true;
+            this.showStatus('Ожидание ответа...', 'connecting');
+
+        } catch (error) {
+            console.error('Ошибка создания предложения:', error);
+            this.showStatus('Ошибка установки соединения', 'error');
+        }
+    }
+
+    async handleSignalingMessage(data) {
+        switch (data.type) {
+            case 'offer':
+                this.handleOffer(data);
+                break;
+            case 'answer':
+                this.handleAnswer(data);
+                break;
+            case 'candidate':
+                this.handleCandidate(data);
+                break;
+        }
+    }
+
+    async handleOffer(data) {
+        console.log('Получено входящее предложение');
+
+        if (!this.pc) {
+            const micStarted = await this.startMicrophone();
+            if (!micStarted) {
+                this.showStatus('Не удалось подключить микрофон', 'error');
+                return;
+            }
+            this.createPeerConnection();
+        }
+
+        try {
+            await this.pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+
+            // Создаем и отправляем ответ
+            const answer = await this.pc.createAnswer();
+            await this.pc.setLocalDescription(answer);
+
+            this.sendMessage({
+                type: 'answer',
+                answer: answer
+            });
+
+            this.isCallActive = true;
+            this.showStatus('Соединение устанавливается...', 'connecting');
+
+        } catch (error) {
+            console.error('Ошибка обработки предложения:', error);
+            this.showStatus('Ошибка установки соединения', 'error');
+        }
+    }
+
+    async handleAnswer(data) {
+        console.log('Получен ответ на звонок');
+
+        try {
+            await this.pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+            this.showStatus('Соединение установлено!', 'success');
+        } catch (error) {
+            console.error('Ошибка установки ответа:', error);
+            this.showStatus('Ошибка установки соединения', 'error');
+        }
+    }
+
+    async handleCandidate(data) {
+        try {
+            if (this.pc) {
+                await this.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
+        } catch (error) {
+            console.error('Ошибка добавления ICE кандидата:', error);
+        }
+    }
+
+    hangUp() {
+        console.log('Завершаем звонок...');
+
+        this.isCallActive = false;
+        this.isIncomingCall = false;
+
+        if (this.pc) {
+            this.pc.close();
+            this.pc = null;
+        }
+
+        if (this.localStream) {
+            this.localStream.getTracks().forEach(track => track.stop());
+            this.localStream = null;
+        }
+
+        if (this.remoteStream) {
+            this.remoteStream = null;
+        }
+
+        this.resetUI();
+
+        if (this.localInfo) {
+            this.localInfo.textContent = 'Микрофон выключен';
+        }
+        if (this.remoteInfo) {
+            this.remoteInfo.textContent = 'Ожидание подключения...';
+        }
+
+        if (this.localVisualizer) {
+            this.localVisualizer.classList.remove('mic-active');
+        }
+        if (this.remoteVisualizer) {
+            this.remoteVisualizer.classList.remove('remote-active');
+        }
+
+        this.showStatus('Ожидание подключения собеседника...', 'connecting');
+    }
+
+    resetUI() {
+        if (this.incomingCallButtons) {
+            this.incomingCallButtons.style.display = 'none';
+        }
+
+        if (this.callerInfo) {
+            this.callerInfo.style.display = 'none';
+        }
+
+        if (this.hangupButton) {
+            this.hangupButton.style.display = 'none';
+        }
+
+        if (this.muteButton) {
+            this.muteButton.disabled = true;
+            this.muteButton.textContent = 'Вкл/Выкл звук';
+        }
+
+        if (this.localVisualizer) {
+            this.localVisualizer.classList.remove('mic-active');
+        }
+        if (this.remoteVisualizer) {
+            this.remoteVisualizer.classList.remove('remote-active');
+        }
+    }
+
+    showStatus(message, type = 'info') {
+        if (!this.statusContainer || !this.statusMessage) return;
+
+        this.statusContainer.style.display = 'block';
+        this.statusMessage.textContent = message;
+
+        this.statusMessage.className = ''; // Очистить классы
+
+        switch(type) {
+            case 'connecting':
+                this.statusMessage.classList.add('status-connecting');
+                break;
+            case 'success':
+                this.statusMessage.classList.add('status-success');
+                break;
+            case 'error':
+                this.statusMessage.classList.add('status-error');
+                break;
+            case 'incoming':
+                this.statusMessage.classList.add('status-incoming');
+                break;
+        }
+
+        console.log(`Статус: ${message}`);
+    }
+
+    toggleMute() {
+        if (!this.localStream) return;
+
+        const audioTracks = this.localStream.getAudioTracks();
+        if (audioTracks.length > 0) {
+            this.isAudioMuted = !this.isAudioMuted;
+            audioTracks[0].enabled = !this.isAudioMuted;
+
+            console.log(`Микрофон: ${this.isAudioMuted ? 'отключен' : 'включен'}`);
+
+            if (this.muteButton) {
+                this.muteButton.textContent = this.isAudioMuted ? 'Включить звук' : 'Выключить звук';
+            }
+
+            if (this.localVisualizer) {
+                if (this.isAudioMuted) {
+                    this.localVisualizer.classList.remove('mic-active');
+                    if (this.localInfo) {
+                        this.localInfo.textContent = 'Микрофон отключен';
+                    }
+                } else {
+                    this.localVisualizer.classList.add('mic-active');
+                    if (this.localInfo) {
+                        this.localInfo.textContent = 'Микрофон включен';
+                    }
+                }
+            }
+        }
+    }
 }
 
-function localDescCreated(desc) {
-  pc.setLocalDescription(
-    desc,
-    () => sendMessage({'sdp': pc.localDescription}),
-    onError
-  );
-}
+// Инициализация после загрузки DOM
+document.addEventListener('DOMContentLoaded', () => {
+    try {
+        const audioCall = new AudioCall();
+        console.log('Аудиозвонок инициализирован');
+    } catch (error) {
+        console.error('Ошибка инициализации аудиозвонка:', error);
+        alert('Ошибка загрузки приложения. Пожалуйста, обновите страницу.');
+    }
+});

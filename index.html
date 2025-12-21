@@ -1,41 +1,82 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-  <script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width">
-  <style>
-    body {
-      display: flex;
-      height: 100vh;
-      margin: 0;
-      align-items: center;
-      justify-content: center;
-      padding: 0 50px;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    }
-    video {
-      max-width: calc(50% - 100px);
-      margin: 0 50px;
-      box-sizing: border-box;
-      border-radius: 2px;
-      padding: 0;
-      box-shadow: rgba(156, 172, 172, 0.2) 0px 2px 2px, rgba(156, 172, 172, 0.2) 0px 4px 4px, rgba(156, 172, 172, 0.2) 0px 8px 8px, rgba(156, 172, 172, 0.2) 0px 16px 16px, rgba(156, 172, 172, 0.2) 0px 32px 32px, rgba(156, 172, 172, 0.2) 0px 64px 64px;
-    }
-    .copy {
-      position: fixed;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 16px;
-      color: rgba(0, 0, 0, 0.5);
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XXConnect</title>
+    <script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="copy">Send your URL to a friend to start a video call</div>
-  <video id="localVideo" autoplay muted></video>
-  <video id="remoteVideo" autoplay></video>
-  <script src="script.js"></script>
+    <div class="container">
+        <header>
+            <h1>XXConnect</h1>
+            <p>Платформа для видео сообщения без лишнего шума</p>
+        </header>
+
+        <div class="info-center">
+            <div class="my-id">
+                <strong>Отправьте эту ссылку другу:</strong>
+                <span id="roomUrl" class="id">Загрузка...</span>
+                <button onclick="copyRoomUrl()" class="button button-small">Копировать</button>
+            </div>
+        </div>
+
+        <div class="audio-container">
+            <div class="audio-wrapper">
+                <h3>Вы</h3>
+                <div class="audio-visualizer" id="localAudioVisualizer">
+                    <div class="visualizer-inner"></div>
+                </div>
+                <div class="audio-info" id="localInfo">Микрофон выключен</div>
+            </div>
+
+            <div class="audio-wrapper">
+                <h3>Собеседник</h3>
+                <div class="audio-visualizer" id="remoteAudioVisualizer">
+                    <div class="visualizer-inner"></div>
+                </div>
+                <div class="audio-info" id="remoteInfo">Ожидание подключения...</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="call-buttons" id="incomingCallButtons" style="display: none;">
+                <button id="acceptButton" class="button button-success">
+                    Принять вызов
+                </button>
+                <button id="declineButton" class="button button-danger">
+                    Отклонить
+                </button>
+            </div>
+
+            <button id="hangupButton" class="button button-danger" style="display: none;">
+                Завершить
+            </button>
+
+            <div class="control-group">
+                <button id="muteButton" class="button button-secondary" disabled>
+                    Вкл/Выкл звук
+                </button>
+            </div>
+        </div>
+
+        <div class="caller-info" id="callerInfo" style="display: none;">
+            <div class="caller-name">Входящий вызов</div>
+        </div>
+
+        <div class="status" id="statusContainer" style="display: none;">
+            <div id="statusMessage">Соединение устанавливается...</div>
+            <div class="connection-info">
+                <span id="connectionStatus">Подключение...</span>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <p>Отправьте ссылку выше другу для начала звонка</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
 </body>
 </html>
