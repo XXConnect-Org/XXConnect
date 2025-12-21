@@ -146,10 +146,15 @@ class VideoCall {
                 this.membersCount = members.length;
 
                 if (members.length >= 2) {
-                    // Второй участник становится инициатором
-                    const myIndex = members.findIndex(member => member.id === this.drone.clientId);
-                    this.isInitiator = (myIndex === 1);
-                    console.log('Я инициатор:', this.isInitiator, 'Мой индекс:', myIndex);
+                    // Сортируем для стабильного определения ролей
+                    const sortedMembers = [...members].sort((a, b) => a.id.localeCompare(b.id));
+                    const myIndex = sortedMembers.findIndex(member => member.id === this.drone.clientId);
+                    this.isInitiator = (myIndex === 1); // Второй в отсортированном списке
+
+                    console.log('Отсортированные участники:', sortedMembers.map(m => m.id));
+                    console.log('Мой индекс в отсортированном списке:', myIndex);
+                    console.log('Я инициатор:', this.isInitiator);
+
                     this.startCall();
                 } else if (members.length === 1) {
                     this.showStatus('Ожидание подключения собеседника...', 'connecting');
