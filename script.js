@@ -44,10 +44,28 @@ class AudioCall {
         this.localStream = null;
         this.remoteStream = null;
         this.isCallActive = false;
-        this.isIncomingCall = false;
         this.isAudioMuted = false;
         this.room = null;
         this.pc = null;
+        this.isInitiator = false; // Флаг инициатора
+
+        // DOM элементы
+        this.localVisualizer = document.getElementById('localAudioVisualizer');
+        this.remoteVisualizer = document.getElementById('remoteAudioVisualizer');
+        this.roomUrlDisplay = document.getElementById('roomUrl');
+
+        this.acceptButton = document.getElementById('acceptButton');
+        this.hangupButton = document.getElementById('hangupButton');
+        this.muteButton = document.getElementById('muteButton');
+        this.declineButton = document.getElementById('declineButton');
+        this.incomingCallButtons = document.getElementById('incomingCallButtons');
+        this.statusContainer = document.getElementById('statusContainer');
+        this.callerInfo = document.getElementById('callerInfo');
+
+        this.statusMessage = document.getElementById('statusMessage');
+        this.connectionStatus = document.getElementById('connectionStatus');
+        this.localInfo = document.getElementById('localInfo');
+        this.remoteInfo = document.getElementById('remoteInfo');
 
         // ScaleDrone настройки
         this.channelId = 'hDgkS2GBMa2Klonx'; // Замените на ваш Channel ID
@@ -78,22 +96,7 @@ class AudioCall {
     }
 
     initializeElements() {
-        this.localVisualizer = document.getElementById('localAudioVisualizer');
-        this.remoteVisualizer = document.getElementById('remoteAudioVisualizer');
-        this.roomUrlDisplay = document.getElementById('roomUrl');
-
-        this.acceptButton = document.getElementById('acceptButton');
-        this.hangupButton = document.getElementById('hangupButton');
-        this.muteButton = document.getElementById('muteButton');
-        this.declineButton = document.getElementById('declineButton');
-        this.incomingCallButtons = document.getElementById('incomingCallButtons');
-        this.statusContainer = document.getElementById('statusContainer');
-        this.callerInfo = document.getElementById('callerInfo');
-
-        this.statusMessage = document.getElementById('statusMessage');
-        this.connectionStatus = document.getElementById('connectionStatus');
-        this.localInfo = document.getElementById('localInfo');
-        this.remoteInfo = document.getElementById('remoteInfo');
+        // Инициализация уже выполнена в конструкторе
     }
 
     setupEventListeners() {
@@ -114,7 +117,7 @@ class AudioCall {
                 return;
             }
 
-            console.log('Подключено к ScaleDrone');
+            console.log('Подключено к ScaleDrone как клиент:', this.drone.clientId);
 
             // Подписка на комнату
             this.room = this.drone.subscribe(this.roomName);
@@ -130,9 +133,15 @@ class AudioCall {
 
             // Обработка списка участников
             this.room.on('members', members => {
-                console.log('Участники в комнате:', members);
-                // Если в комнате двое участников, начинаем звонок
-                if (members.length === 2) {
+                console.log('Участники в комнате:', members.map(m => m.id));
+
+                // Определяем, кто инициатор
+                const myIndex = members.findIndex(member => member.id === this.drone.clientId);
+                console.log('Мой индекс:', myIndex);
+
+                if (members.length >= 2) {
+                    this.isInitiator = (myIndex === 1); // Второй участник - инициатор
+                    console.log('Я инициатор:', this.isInitiator);
                     this.startCall();
                 } else if (members.length === 1) {
                     this.showStatus('Ожидание подключения собеседника...', 'connecting');
@@ -146,7 +155,8 @@ class AudioCall {
                     return;
                 }
 
-                this.handleSignalingMessage(message);
+                console.log('Получено сообщение:', message);
+                this.handleSignalingMessage(message, client);
             });
         });
     }
@@ -207,6 +217,7 @@ class AudioCall {
         // Обработка ICE кандидатов
         this.pc.onicecandidate = event => {
             if (event.candidate) {
+                console.log('Отправляем ICE кандидат');
                 this.sendMessage({
                     type: 'candidate',
                     candidate: event.candidate
@@ -235,10 +246,13 @@ class AudioCall {
                 this.pc.addTrack(track, this.localStream);
             });
         }
+
+        console.log('PeerConnection создан');
     }
 
     sendMessage(message) {
         if (this.drone && this.room) {
+            console.log('Отправляем сообщение:', message);
             this.drone.publish({
                 room: this.roomName,
                 message: message
@@ -247,7 +261,7 @@ class AudioCall {
     }
 
     async startCall() {
-        console.log('Начинаем звонок...');
+        console.log('Начинаем звонок... Инициатор:', this.isInitiator);
 
         this.showStatus('Устанавливаем соединение...', 'connecting');
 
@@ -260,23 +274,29 @@ class AudioCall {
         // Создаем PeerConnection
         this.createPeerConnection();
 
-        // Определяем, кто будет создавать предложение
-        // Второй участник (который присоединился позже) создает предложение
-        this.room.getMembers((error, members) => {
-            if (error) return;
+        // Если мы инициатор - создаем предложение
+        if (this.isInitiator) {
+            console.log('Я инициатор, создаю предложение');
+            setTimeout(() => this.createOffer(), 1000); // Небольшая задержка для стабильности
+        } else {
+            console.log('Я отвечающий, жду предложения');
+        }
 
-            const myIndex = members.findIndex(member => member.id === this.drone.clientId);
-            const isOfferer = myIndex === 1; // Второй участник создает предложение
+        this.isCallActive = true;
+        this.enableControls();
+    }
 
-            if (isOfferer) {
-                this.showStatus('Создаем оффер...', 'connecting');
-                this.createOffer();
-            }
-        });
+    enableControls() {
+        if (this.muteButton) this.muteButton.disabled = false;
+        if (this.hangupButton) {
+            this.hangupButton.style.display = 'block';
+            this.hangupButton.disabled = false;
+        }
     }
 
     async createOffer() {
         try {
+            console.log('Создаем предложение...');
             const offer = await this.pc.createOffer();
             await this.pc.setLocalDescription(offer);
 
@@ -285,8 +305,8 @@ class AudioCall {
                 offer: offer
             });
 
-            this.isCallActive = true;
             this.showStatus('Ожидание ответа...', 'connecting');
+            console.log('Предложение отправлено');
 
         } catch (error) {
             console.error('Ошибка создания предложения:', error);
@@ -294,38 +314,35 @@ class AudioCall {
         }
     }
 
-    async handleSignalingMessage(data) {
+    async handleSignalingMessage(data, client) {
+        console.log('Обрабатываем сообщение типа:', data.type);
+
         switch (data.type) {
             case 'offer':
-                this.handleOffer(data);
+                this.handleOffer(data, client);
                 break;
             case 'answer':
-                this.handleAnswer(data);
+                this.handleAnswer(data, client);
                 break;
             case 'candidate':
-                this.handleCandidate(data);
+                this.handleCandidate(data, client);
                 break;
+            default:
+                console.log('Неизвестный тип сообщения:', data.type);
         }
     }
 
-    async handleOffer(data) {
+    async handleOffer(data, client) {
         console.log('Получено входящее предложение');
-
-        if (!this.pc) {
-            const micStarted = await this.startMicrophone();
-            if (!micStarted) {
-                this.showStatus('Не удалось подключить микрофон', 'error');
-                return;
-            }
-            this.createPeerConnection();
-        }
 
         try {
             await this.pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+            console.log('Установлено удаленное описание');
 
             // Создаем и отправляем ответ
             const answer = await this.pc.createAnswer();
             await this.pc.setLocalDescription(answer);
+            console.log('Создан и установлен локальный ответ');
 
             this.sendMessage({
                 type: 'answer',
@@ -333,7 +350,9 @@ class AudioCall {
             });
 
             this.isCallActive = true;
+            this.enableControls();
             this.showStatus('Соединение устанавливается...', 'connecting');
+            console.log('Ответ отправлен');
 
         } catch (error) {
             console.error('Ошибка обработки предложения:', error);
@@ -341,11 +360,12 @@ class AudioCall {
         }
     }
 
-    async handleAnswer(data) {
+    async handleAnswer(data, client) {
         console.log('Получен ответ на звонок');
 
         try {
             await this.pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+            console.log('Установлен ответ от собеседника');
             this.showStatus('Соединение установлено!', 'success');
         } catch (error) {
             console.error('Ошибка установки ответа:', error);
@@ -353,10 +373,12 @@ class AudioCall {
         }
     }
 
-    async handleCandidate(data) {
+    async handleCandidate(data, client) {
+        console.log('Получен ICE кандидат');
         try {
             if (this.pc) {
                 await this.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+                console.log('ICE кандидат добавлен');
             }
         } catch (error) {
             console.error('Ошибка добавления ICE кандидата:', error);
@@ -367,7 +389,7 @@ class AudioCall {
         console.log('Завершаем звонок...');
 
         this.isCallActive = false;
-        this.isIncomingCall = false;
+        this.isAudioMuted = false;
 
         if (this.pc) {
             this.pc.close();
