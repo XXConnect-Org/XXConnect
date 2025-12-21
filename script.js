@@ -198,7 +198,12 @@ class VideoCall {
             // Отображаем локальное видео
             this.localVideo.srcObject = this.localStream;
             this.localVideoContainer.classList.add('active');
-            this.localVideo.play().catch(e => console.log('Ошибка воспроизведения локального видео:', e));
+            const localPlayPromise = this.localVideo.play();
+            if (localPlayPromise !== undefined) {
+                localPlayPromise.catch(error => {
+                    console.log('Ошибка воспроизведения локального видео:', error);
+                });
+            }
 
             if (this.localInfo) {
                 this.localInfo.textContent = 'Камера и микрофон включены';
@@ -244,7 +249,6 @@ class VideoCall {
             }
         };
 
-        // Обработка входящего потока
         this.pc.ontrack = event => {
             this.remoteStream = event.streams[0];
             console.log('Получен удаленный поток');
@@ -252,7 +256,25 @@ class VideoCall {
             // Отображаем удаленное видео
             this.remoteVideo.srcObject = this.remoteStream;
             this.remoteVideoContainer.classList.add('active');
-            this.remoteVideo.play().catch(e => console.log('Ошибка воспроизведения удаленного видео:', e));
+
+            // Безопасное воспроизведение
+            const playPromise = this.remoteVideo.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.log('Ошибка воспроизведения удаленного видео (не критично):', error);
+                    // Это нормально для некоторых браузеров
+                });
+            }
+
+            // Повторная попытка через немного времени
+            setTimeout(() => {
+                if (this.remoteVideo && (this.remoteVideo.paused || this.remoteVideo.ended)) {
+                    const retryPromise = this.remoteVideo.play();
+                    if (retryPromise !== undefined) {
+                        retryPromise.catch(e => console.log('Повторная попытка воспроизведения:', e));
+                    }
+                }
+            }, 100);
 
             if (this.remoteInfo) {
                 this.remoteInfo.textContent = 'Собеседник подключен';
