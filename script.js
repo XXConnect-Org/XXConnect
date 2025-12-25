@@ -137,8 +137,10 @@ class AudioCall {
                 this.membersCount = members.length;
 
                 if (members.length >= 2) {
+                    // Сортируем участников по ID для стабильного порядка
+                    const sortedMembers = [...members].sort((a, b) => a.id.localeCompare(b.id));
                     // Второй участник становится инициатором
-                    const myIndex = members.findIndex(member => member.id === this.drone.clientId);
+                    const myIndex = sortedMembers.findIndex(member => member.id === this.drone.clientId);
                     this.isInitiator = (myIndex === 1);
                     console.log('Я инициатор:', this.isInitiator, 'Мой индекс:', myIndex);
                     this.startCall();
